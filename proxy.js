@@ -25,21 +25,16 @@ export const proxyMedia = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
 
     const contentType = response.headers.get('content-type');
-    if (contentType) {
-      res.setHeader('Content-Type', contentType);
-    }
+    if (contentType) res.setHeader('Content-Type', contentType);
 
     const contentLength = response.headers.get('content-length');
-    if (contentLength) {
-      res.setHeader('Content-Length', contentLength);
-    }
+    if (contentLength) res.setHeader('Content-Length', contentLength);
+
+    const contentRange = response.headers.get('content-range');
+    if (contentRange) res.setHeader('Content-Range', contentRange);
 
     const acceptRanges = response.headers.get('accept-ranges');
-    if (acceptRanges) {
-      res.setHeader('Accept-Ranges', acceptRanges);
-    } else {
-      res.setHeader('Accept-Ranges', 'bytes');
-    }
+    res.setHeader('Accept-Ranges', acceptRanges || 'bytes');
 
     res.status(response.status);
 
@@ -50,7 +45,7 @@ export const proxyMedia = async (req, res) => {
     const nodeStream = Readable.fromWeb(response.body);
 
     pipeline(nodeStream, res, (err) => {
-      if (err) {
+      if (err && err.code !== 'ERR_STREAM_PREMATURE_CLOSE') {
         console.error('stream error', err.message);
       }
     });
