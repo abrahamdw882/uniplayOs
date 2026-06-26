@@ -35,15 +35,12 @@ class Resolver {
   selectStrategy(url, type) {
     if (type === 'iframe') return 'iframe';
 
-    if (type === 'hls') return 'hls';
+    if (this.requiresProxy(url)) return 'proxy';
+
+    if (type === 'hls')  return 'hls';
     if (type === 'dash') return 'dash';
 
-    if (type === 'mp4' || type === 'audio') {
-      if (this.requiresProxy(url)) return 'proxy';
-      return 'native';
-    }
-
-    return 'proxy';
+    return 'native';
   }
 
   requiresProxy(url) {
