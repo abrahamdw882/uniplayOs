@@ -226,6 +226,7 @@
   <script src="/js/utils/api.js"></script>
 
   <script>
+    // ---------- DOM refs ----------
     const video     = document.getElementById('video');
     const stage     = document.getElementById('stage');
     const btnPlay   = document.getElementById('btn-play');
@@ -239,14 +240,27 @@
     const urlInput  = document.getElementById('url-input');
     const urlLoad   = document.getElementById('url-load');
     const status    = document.getElementById('status');
+    const embedFrame = document.getElementById('embed-frame');
 
     function setStatus(msg) { status.textContent = msg; }
 
     let hlsInstance  = null;
     let dashInstance = null;
+    let isReadySent = false;   // avoid sending 'ready' multiple times
 
-    const embedFrame = document.getElementById('embed-frame');
+    // ---------- Embed communication helpers ----------
+    function sendEmbedEvent(action, payload = {}) {
+      window.parent.postMessage({ type: 'uniplayos', action, ...payload }, '*');
+    }
 
+    function sendReadyIfNeeded() {
+      if (!isReadySent) {
+        isReadySent = true;
+        sendEmbedEvent('ready');
+      }
+    }
+
+    // ---------- Media loading (modified to accept autoplay and send ready) ----------
     function getEmbedUrl(url) {
       if (Utils.isYouTube(url)) {
         const match = url.match(/(?:v=|youtu\.be\/|shorts\/)([a-zA-Z0-9_-]{11})/);
@@ -272,9 +286,10 @@
       if (p !== undefined) p.catch(() => {});
     }
 
-    function loadUrl(rawUrl) {
+    function loadUrl(rawUrl, autoplay = false) {
       if (!rawUrl) return;
       destroyInstances();
+      isReadySent = false;   // new load, reset ready flag
 
       const resolver = new Resolver();
       const result   = resolver.resolve(rawUrl);
@@ -286,34 +301,53 @@
         showEmbed();
         embedFrame.src = getEmbedUrl(rawUrl);
         setStatus('');
+        // For iframe embeds we consider the player ready immediately
+        sendReadyIfNeeded();
+        if (autoplay) {
+          // The iframe will autoplay because we added &autoplay=1 in getEmbedUrl
+        }
         return;
       }
 
       showVideo();
+
+      const onMediaReady = () => {
+        setStatus('');
+        sendReadyIfNeeded();
+        if (autoplay) safePlay();
+      };
 
       if (result.type === 'hls') {
         if (Hls.isSupported()) {
           hlsInstance = new Hls();
           hlsInstance.loadSource(src);
           hlsInstance.attachMedia(video);
-          hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => { safePlay(); setStatus(''); });
-          hlsInstance.on(Hls.Events.ERROR, (_, data) => { if (data.fatal) setStatus('Stream error.'); });
+          hlsInstance.on(Hls.Events.MANIFEST_PARSED, onMediaReady);
+          hlsInstance.on(Hls.Events.ERROR, (_, data) => {
+            if (data.fatal) {
+              setStatus('Stream error.');
+              sendEmbedEvent('error', { message: 'HLS fatal error' });
+            }
+          });
         } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
           video.src = src;
-          safePlay();
-          setStatus('');
+          video.addEventListener('loadedmetadata', onMediaReady, { once: true });
+          if (autoplay) safePlay();
         }
       } else if (result.type === 'dash') {
         dashInstance = dashjs.MediaPlayer().create();
         dashInstance.initialize(video, src, true);
-        setStatus('');
+        dashInstance.on('streamInitialized', onMediaReady);
+        // dash will not autoplay automatically; we'll rely on autoplay flag
       } else {
+        // Direct video (MP4, etc.)
         video.src = src;
-        safePlay();
-        setStatus('');
+        video.addEventListener('loadedmetadata', onMediaReady, { once: true });
+        if (autoplay) safePlay();
       }
     }
 
+    // ---------- Control functions ----------
     function togglePlay() {
       if (video.paused) { safePlay(); } else { video.pause(); }
     }
@@ -322,18 +356,38 @@
       btn.querySelector('i').className = `fa-solid fa-${icon}`;
     }
 
-    video.addEventListener('play',  () => { stage.classList.remove('paused'); setIcon(btnPlay, 'pause'); setIcon(playBig, 'pause'); });
-    video.addEventListener('pause', () => { stage.classList.add('paused');    setIcon(btnPlay, 'play');  setIcon(playBig, 'play');  });
+    // ---------- Video event listeners (add embed events) ----------
+    video.addEventListener('play',  () => {
+      stage.classList.remove('paused');
+      setIcon(btnPlay, 'pause');
+      setIcon(playBig, 'pause');
+      sendEmbedEvent('play');
+    });
+    video.addEventListener('pause', () => {
+      stage.classList.add('paused');
+      setIcon(btnPlay, 'play');
+      setIcon(playBig, 'play');
+      sendEmbedEvent('pause');
+    });
+    video.addEventListener('ended', () => {
+      sendEmbedEvent('ended');
+    });
+    video.addEventListener('error', () => {
+      setStatus('Failed to load media.');
+      sendEmbedEvent('error', { message: 'Video error' });
+    });
 
     video.addEventListener('timeupdate', () => {
       if (!video.duration) return;
       const pct = (video.currentTime / video.duration) * 100;
       progress.style.width = pct + '%';
       timeEl.textContent = `${Utils.formatTime(video.currentTime)} / ${Utils.formatTime(video.duration)}`;
+      // Optionally send timeupdate – we can throttle, but it's fine to send every update
+      // The embed may not use it, but we can send it.
+      sendEmbedEvent('timeupdate', { currentTime: video.currentTime, duration: video.duration });
     });
 
-    video.addEventListener('error', () => setStatus('Failed to load media.'));
-
+    // ---------- UI event listeners ----------
     progWrap.addEventListener('click', e => {
       const rect = progWrap.getBoundingClientRect();
       if (video.duration) video.currentTime = ((e.clientX - rect.left) / rect.width) * video.duration;
@@ -342,16 +396,80 @@
     btnPlay.addEventListener('click', togglePlay);
     playBig.addEventListener('click', togglePlay);
 
-    btnMute.addEventListener('click', () => { video.muted = !video.muted; setIcon(btnMute, video.muted ? 'volume-xmark' : 'volume-high'); });
-    volSlider.addEventListener('input', () => { video.volume = volSlider.value; });
-    btnFs.addEventListener('click', () => { if (!document.fullscreenElement) stage.requestFullscreen(); else document.exitFullscreen(); });
+    btnMute.addEventListener('click', () => {
+      video.muted = !video.muted;
+      setIcon(btnMute, video.muted ? 'volume-xmark' : 'volume-high');
+    });
+    volSlider.addEventListener('input', () => {
+      video.volume = volSlider.value;
+    });
+    btnFs.addEventListener('click', () => {
+      if (!document.fullscreenElement) stage.requestFullscreen(); else document.exitFullscreen();
+    });
 
     urlLoad.addEventListener('click', () => loadUrl(urlInput.value.trim()));
     urlInput.addEventListener('keydown', e => { if (e.key === 'Enter') loadUrl(urlInput.value.trim()); });
 
+    // ---------- Parse URL parameters (support both 'source' and 'url') ----------
     const params = new URLSearchParams(window.location.search);
-    const autoUrl = params.get('url');
-    if (autoUrl) { urlInput.value = autoUrl; loadUrl(autoUrl); }
+    const sourceParam = params.get('source');
+    const urlParam = params.get('url');
+    const autoplayParam = params.get('autoplay') === 'true';
+    const initialUrl = sourceParam || urlParam;
+
+    if (initialUrl) {
+      urlInput.value = initialUrl;
+      loadUrl(initialUrl, autoplayParam);
+    } else {
+      // No source given – the player is still ready (idle)
+      setTimeout(sendReadyIfNeeded, 300);
+    }
+
+    // ---------- Embed postMessage listener ----------
+    window.addEventListener('message', (event) => {
+      const data = event.data;
+      if (!data || data.type !== 'uniplayos') return;
+
+      switch (data.action) {
+        case 'play':
+          safePlay();
+          break;
+        case 'pause':
+          video.pause();
+          break;
+        case 'togglePlay':
+          togglePlay();
+          break;
+        case 'seek':
+          if (data.time !== undefined) video.currentTime = data.time;
+          break;
+        case 'setVolume':
+          if (data.level !== undefined) {
+            const vol = Math.max(0, Math.min(1, data.level));
+            video.volume = vol;
+            volSlider.value = vol;
+          }
+          break;
+        case 'toggleMute':
+          video.muted = !video.muted;
+          setIcon(btnMute, video.muted ? 'volume-xmark' : 'volume-high');
+          break;
+        case 'toggleFullscreen':
+          if (!document.fullscreenElement) stage.requestFullscreen(); else document.exitFullscreen();
+          break;
+        case 'load':
+          if (data.source) loadUrl(data.source, false);
+          break;
+        case 'destroy':
+          destroyInstances();
+          video.pause();
+          video.src = '';
+          embedFrame.src = '';
+          break;
+        default:
+          // ignore
+      }
+    });
   </script>
 </body>
 </html>
