@@ -2,17 +2,22 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Player — UniplayOS</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>UniplayOS · native player</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
 
     :root {
       --bg: #0a0a0a;
       --surface: #111;
       --border: #1f1f1f;
       --text: #e8e8e8;
-      --muted: #555;
+      --muted: #777;
       --accent: #c8ff00;
       --ctrl-h: 48px;
     }
@@ -26,32 +31,43 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
+      padding: 1rem;
     }
 
     #wrapper {
       width: 100%;
-      max-width: 960px;
-      padding: 1rem;
+      max-width: 1000px;
+      background: var(--bg);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.8);
     }
 
     #stage {
       position: relative;
       width: 100%;
+      background: #000;
       aspect-ratio: 16 / 9;
+      transition: aspect-ratio 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #stage video {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: contain;
       background: #000;
     }
 
-    #embed-frame {
+    #stage #embed-frame {
       width: 100%;
       height: 100%;
       border: none;
       display: none;
-    }
-
-    video {
-      width: 100%;
-      height: 100%;
-      display: block;
+      object-fit: contain;
     }
 
     #overlay {
@@ -64,28 +80,33 @@
     }
 
     #play-big {
-      width: 64px;
-      height: 64px;
+      width: 70px;
+      height: 70px;
       border: 2px solid var(--accent);
       color: var(--accent);
-      background: transparent;
+      background: rgba(0,0,0,0.5);
+      backdrop-filter: blur(4px);
       cursor: pointer;
-      font-size: 1.4rem;
+      font-size: 1.8rem;
       display: flex;
       align-items: center;
       justify-content: center;
       pointer-events: all;
+      border-radius: 50%;
       opacity: 0;
-      transition: opacity 0.15s;
+      transition: opacity 0.2s, transform 0.2s;
+      transform: scale(0.9);
     }
 
-    #stage.paused #play-big { opacity: 1; }
+    #stage.paused #play-big {
+      opacity: 1;
+      transform: scale(1);
+    }
 
     #controls {
       background: var(--surface);
-      border: 1px solid var(--border);
-      border-top: none;
-      padding: 0.5rem 0.75rem;
+      border-top: 1px solid var(--border);
+      padding: 0.5rem 0.75rem 0.6rem;
       display: flex;
       flex-direction: column;
       gap: 0.4rem;
@@ -93,16 +114,21 @@
 
     #progress-wrap {
       position: relative;
-      height: 4px;
+      height: 5px;
       background: var(--border);
       cursor: pointer;
+      border-radius: 4px;
+      transition: height 0.1s;
     }
+    #progress-wrap:hover { height: 7px; }
 
     #progress-fill {
       height: 100%;
       background: var(--accent);
       width: 0%;
       pointer-events: none;
+      border-radius: 4px;
+      transition: width 0.05s linear;
     }
 
     #ctrl-row {
@@ -110,6 +136,7 @@
       align-items: center;
       gap: 0.75rem;
       height: var(--ctrl-h);
+      flex-wrap: wrap;
     }
 
     button {
@@ -118,18 +145,23 @@
       color: var(--text);
       cursor: pointer;
       font-family: inherit;
-      font-size: 0.8rem;
-      padding: 0.25rem 0.5rem;
-      letter-spacing: 0.05em;
+      font-size: 1rem;
+      padding: 0.25rem 0.4rem;
+      letter-spacing: 0.03em;
+      transition: color 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
-
     button:hover { color: var(--accent); }
     button:focus-visible { outline: 1px solid var(--accent); }
 
     #time {
-      font-size: 0.75rem;
+      font-size: 0.8rem;
       color: var(--muted);
       white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+      min-width: 110px;
     }
 
     #vol-wrap {
@@ -142,334 +174,389 @@
     #vol {
       width: 70px;
       accent-color: var(--accent);
+      background: var(--border);
+      border-radius: 4px;
+      height: 4px;
+      cursor: pointer;
     }
 
     #url-bar {
       display: flex;
       gap: 0.5rem;
-      margin-top: 1rem;
+      padding: 0.5rem 0.75rem 0.75rem;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      flex-wrap: wrap;
     }
 
     #url-input {
       flex: 1;
-      background: var(--surface);
+      background: var(--bg);
       border: 1px solid var(--border);
       color: var(--text);
       font-family: inherit;
       font-size: 0.8rem;
       padding: 0.5rem 0.75rem;
       outline: none;
+      border-radius: 6px;
+      min-width: 150px;
     }
-
     #url-input:focus { border-color: var(--accent); }
 
     #url-load {
       border: 1px solid var(--accent);
       color: var(--accent);
-      padding: 0.5rem 1rem;
+      padding: 0.5rem 1.2rem;
       font-size: 0.8rem;
       letter-spacing: 0.05em;
+      border-radius: 6px;
+      background: transparent;
+      transition: 0.15s;
     }
-
     #url-load:hover { background: var(--accent); color: var(--bg); }
 
     #status {
       font-size: 0.72rem;
       color: var(--muted);
-      margin-top: 0.5rem;
-      min-height: 1rem;
+      padding: 0.25rem 0.75rem 0.5rem;
+      background: var(--surface);
+      min-height: 1.6rem;
+      border-top: 1px solid var(--border);
+      font-family: monospace;
+    }
+
+    #stage.fullscreen {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      max-width: 100vw;
+      max-height: 100vh;
+      background: #000;
+      z-index: 9999;
+      aspect-ratio: auto !important;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      border-radius: 0;
+    }
+
+    #stage.fullscreen video {
+      object-fit: contain;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    #stage.fullscreen #controls {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(8px);
+      border-top: 1px solid rgba(255,255,255,0.1);
+    }
+
+    #stage.fullscreen #url-bar,
+    #stage.fullscreen #status {
+      display: none;
+    }
+
+    @media (max-width: 600px) {
+      #ctrl-row { gap: 0.4rem; }
+      #vol { width: 50px; }
+      #time { font-size: 0.7rem; min-width: 80px; }
+      #play-big { width: 56px; height: 56px; font-size: 1.4rem; }
     }
 
     @media (prefers-reduced-motion: reduce) {
-      #play-big, button { transition: none; }
+      * { transition: none !important; }
     }
   </style>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 </head>
 <body>
-  <div id="wrapper">
-    <div id="stage" class="paused">
-      <video id="video"></video>
-      <iframe id="embed-frame" allowfullscreen allow="autoplay"></iframe>
-      <div id="overlay">
-        <button id="play-big" aria-label="Play"><i class="fa-solid fa-play"></i></button>
-      </div>
-    </div>
 
-    <div id="controls">
-      <div id="progress-wrap" role="slider" aria-label="Seek" tabindex="0">
-        <div id="progress-fill"></div>
-      </div>
-      <div id="ctrl-row">
-        <button id="btn-play" aria-label="Play/Pause"><i class="fa-solid fa-play"></i></button>
-        <span id="time">0:00 / 0:00</span>
-        <div id="vol-wrap">
-          <button id="btn-mute" aria-label="Mute"><i class="fa-solid fa-volume-high"></i></button>
-          <input id="vol" type="range" min="0" max="1" step="0.02" value="1" aria-label="Volume">
-        </div>
-        <button id="btn-fs" aria-label="Fullscreen"><i class="fa-solid fa-expand"></i></button>
-      </div>
+<div id="wrapper">
+  <div id="stage" class="paused">
+    <video id="video" playsinline></video>
+    <iframe id="embed-frame" allowfullscreen allow="autoplay"></iframe>
+    <div id="overlay">
+      <button id="play-big" aria-label="Play"><i class="fa-solid fa-play"></i></button>
     </div>
-
-    <div id="url-bar">
-      <input id="url-input" type="url" placeholder="Paste a video URL…" spellcheck="false">
-      <button id="url-load">Load</button>
-    </div>
-
-    <p id="status"></p>
   </div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.7/hls.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/dashjs/4.7.4/dash.all.min.js"></script>
-  <script src="/js/utils/utils.js"></script>
-  <script src="/js/utils/resolver.js"></script>
-  <script src="/js/utils/api.js"></script>
+  <div id="controls">
+    <div id="progress-wrap" role="slider" aria-label="Seek" tabindex="0">
+      <div id="progress-fill"></div>
+    </div>
+    <div id="ctrl-row">
+      <button id="btn-play" aria-label="Play/Pause"><i class="fa-solid fa-play"></i></button>
+      <span id="time">0:00 / 0:00</span>
+      <div id="vol-wrap">
+        <button id="btn-mute" aria-label="Mute"><i class="fa-solid fa-volume-high"></i></button>
+        <input id="vol" type="range" min="0" max="1" step="0.02" value="1" aria-label="Volume">
+      </div>
+      <button id="btn-fs" aria-label="Fullscreen"><i class="fa-solid fa-expand"></i></button>
+    </div>
+  </div>
 
-  <script>
-    // ---------- DOM refs ----------
-    const video     = document.getElementById('video');
-    const stage     = document.getElementById('stage');
-    const btnPlay   = document.getElementById('btn-play');
-    const playBig   = document.getElementById('play-big');
-    const btnMute   = document.getElementById('btn-mute');
-    const btnFs     = document.getElementById('btn-fs');
-    const progress  = document.getElementById('progress-fill');
-    const progWrap  = document.getElementById('progress-wrap');
-    const timeEl    = document.getElementById('time');
-    const volSlider = document.getElementById('vol');
-    const urlInput  = document.getElementById('url-input');
-    const urlLoad   = document.getElementById('url-load');
-    const status    = document.getElementById('status');
-    const embedFrame = document.getElementById('embed-frame');
+  <div id="url-bar">
+    <input id="url-input" type="url" placeholder="Paste video URL (MP4, HLS, DASH, YouTube…)" spellcheck="false">
+    <button id="url-load">Load</button>
+  </div>
+  <div id="status">Ready</div>
+</div>
 
-    function setStatus(msg) { status.textContent = msg; }
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.7/hls.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dashjs/4.7.4/dash.all.min.js"></script>
+<script src="/js/utils/utils.js"></script>
+<script src="/js/utils/resolver.js"></script>
+<script src="/js/utils/api.js"></script>
 
-    let hlsInstance  = null;
-    let dashInstance = null;
-    let isReadySent = false;   // avoid sending 'ready' multiple times
+<script>
+  const video = document.getElementById('video');
+  const stage = document.getElementById('stage');
+  const embedFrame = document.getElementById('embed-frame');
+  const btnPlay = document.getElementById('btn-play');
+  const playBig = document.getElementById('play-big');
+  const btnMute = document.getElementById('btn-mute');
+  const btnFs = document.getElementById('btn-fs');
+  const progress = document.getElementById('progress-fill');
+  const progWrap = document.getElementById('progress-wrap');
+  const timeEl = document.getElementById('time');
+  const volSlider = document.getElementById('vol');
+  const urlInput = document.getElementById('url-input');
+  const urlLoad = document.getElementById('url-load');
+  const status = document.getElementById('status');
 
-    // ---------- Embed communication helpers ----------
-    function sendEmbedEvent(action, payload = {}) {
-      window.parent.postMessage({ type: 'uniplayos', action, ...payload }, '*');
+  function setStatus(msg) { status.textContent = msg; }
+
+  let hlsInstance = null;
+  let dashInstance = null;
+  let isReadySent = false;
+
+  function sendEmbedEvent(action, payload = {}) {
+    window.parent.postMessage({ type: 'uniplayos', action, ...payload }, '*');
+  }
+
+  function sendReadyIfNeeded() {
+    if (!isReadySent) {
+      isReadySent = true;
+      sendEmbedEvent('ready');
+    }
+  }
+
+  function updateAspectRatio() {
+    if (!video.videoWidth || !video.videoHeight) return;
+    const w = video.videoWidth;
+    const h = video.videoHeight;
+    stage.style.aspectRatio = `${w} / ${h}`;
+  }
+
+  function destroyInstances() {
+    if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+    if (dashInstance) { dashInstance.reset(); dashInstance = null; }
+  }
+
+  function showVideo() {
+    video.style.display = 'block';
+    embedFrame.style.display = 'none';
+  }
+  function showEmbed() {
+    video.style.display = 'none';
+    embedFrame.style.display = 'block';
+  }
+
+  function safePlay() {
+    const p = video.play();
+    if (p !== undefined) p.catch(() => {});
+  }
+
+  function loadUrl(rawUrl, autoplay = false) {
+    if (!rawUrl) return;
+    destroyInstances();
+    isReadySent = false;
+
+    const resolver = new Resolver();
+    const result = resolver.resolve(rawUrl);
+    const src = result.proxyRequired ? resolver.getProxyUrl(rawUrl) : rawUrl;
+
+    setStatus('Loading…');
+
+    if (result.strategy === 'iframe') {
+      showEmbed();
+      embedFrame.src = result.embedUrl || rawUrl;
+      setStatus('');
+      stage.style.aspectRatio = '16 / 9';
+      sendReadyIfNeeded();
+      if (autoplay) { }
+      return;
     }
 
-    function sendReadyIfNeeded() {
-      if (!isReadySent) {
-        isReadySent = true;
-        sendEmbedEvent('ready');
-      }
-    }
+    showVideo();
+    stage.style.aspectRatio = '16 / 9';
 
-    // ---------- Media loading (modified to accept autoplay and send ready) ----------
-    function getEmbedUrl(url) {
-      if (Utils.isYouTube(url)) {
-        const match = url.match(/(?:v=|youtu\.be\/|shorts\/)([a-zA-Z0-9_-]{11})/);
-        return match ? `https://www.youtube.com/embed/${match[1]}?autoplay=1` : url;
-      }
-      if (Utils.isVimeo(url)) {
-        const match = url.match(/vimeo\.com\/(\d+)/);
-        return match ? `https://player.vimeo.com/video/${match[1]}?autoplay=1` : url;
-      }
-      return url;
-    }
+    const onMediaReady = () => {
+      setStatus('');
+      updateAspectRatio();
+      sendReadyIfNeeded();
+      if (autoplay) safePlay();
+    };
 
-    function showVideo()  { video.style.display = 'block'; embedFrame.style.display = 'none'; }
-    function showEmbed()  { video.style.display = 'none';  embedFrame.style.display = 'block'; }
-
-    function destroyInstances() {
-      if (hlsInstance)  { hlsInstance.destroy();  hlsInstance  = null; }
-      if (dashInstance) { dashInstance.reset();   dashInstance = null; }
-    }
-
-    function safePlay() {
-      const p = video.play();
-      if (p !== undefined) p.catch(() => {});
-    }
-
-    function loadUrl(rawUrl, autoplay = false) {
-      if (!rawUrl) return;
-      destroyInstances();
-      isReadySent = false;   // new load, reset ready flag
-
-      const resolver = new Resolver();
-      const result   = resolver.resolve(rawUrl);
-      const src      = result.proxyRequired ? resolver.getProxyUrl(rawUrl) : rawUrl;
-
-      setStatus('Loading…');
-
-      if (result.strategy === 'iframe') {
-        showEmbed();
-        embedFrame.src = getEmbedUrl(rawUrl);
-        setStatus('');
-        // For iframe embeds we consider the player ready immediately
-        sendReadyIfNeeded();
-        if (autoplay) {
-          // The iframe will autoplay because we added &autoplay=1 in getEmbedUrl
-        }
-        return;
-      }
-
-      showVideo();
-
-      const onMediaReady = () => {
-        setStatus('');
-        sendReadyIfNeeded();
-        if (autoplay) safePlay();
-      };
-
-      if (result.type === 'hls') {
-        if (Hls.isSupported()) {
-          hlsInstance = new Hls();
-          hlsInstance.loadSource(src);
-          hlsInstance.attachMedia(video);
-          hlsInstance.on(Hls.Events.MANIFEST_PARSED, onMediaReady);
-          hlsInstance.on(Hls.Events.ERROR, (_, data) => {
-            if (data.fatal) {
-              setStatus('Stream error.');
-              sendEmbedEvent('error', { message: 'HLS fatal error' });
-            }
-          });
-        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-          video.src = src;
-          video.addEventListener('loadedmetadata', onMediaReady, { once: true });
-          if (autoplay) safePlay();
-        }
-      } else if (result.type === 'dash') {
-        dashInstance = dashjs.MediaPlayer().create();
-        dashInstance.initialize(video, src, true);
-        dashInstance.on('streamInitialized', onMediaReady);
-        // dash will not autoplay automatically; we'll rely on autoplay flag
-      } else {
-        // Direct video (MP4, etc.)
+    if (result.type === 'hls') {
+      if (Hls.isSupported()) {
+        hlsInstance = new Hls();
+        hlsInstance.loadSource(src);
+        hlsInstance.attachMedia(video);
+        hlsInstance.on(Hls.Events.MANIFEST_PARSED, onMediaReady);
+        hlsInstance.on(Hls.Events.ERROR, (_, data) => {
+          if (data.fatal) {
+            setStatus('Stream error.');
+            sendEmbedEvent('error', { message: 'HLS fatal error' });
+          }
+        });
+      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
         video.src = src;
         video.addEventListener('loadedmetadata', onMediaReady, { once: true });
         if (autoplay) safePlay();
       }
-    }
-
-    // ---------- Control functions ----------
-    function togglePlay() {
-      if (video.paused) { safePlay(); } else { video.pause(); }
-    }
-
-    function setIcon(btn, icon) {
-      btn.querySelector('i').className = `fa-solid fa-${icon}`;
-    }
-
-    // ---------- Video event listeners (add embed events) ----------
-    video.addEventListener('play',  () => {
-      stage.classList.remove('paused');
-      setIcon(btnPlay, 'pause');
-      setIcon(playBig, 'pause');
-      sendEmbedEvent('play');
-    });
-    video.addEventListener('pause', () => {
-      stage.classList.add('paused');
-      setIcon(btnPlay, 'play');
-      setIcon(playBig, 'play');
-      sendEmbedEvent('pause');
-    });
-    video.addEventListener('ended', () => {
-      sendEmbedEvent('ended');
-    });
-    video.addEventListener('error', () => {
-      setStatus('Failed to load media.');
-      sendEmbedEvent('error', { message: 'Video error' });
-    });
-
-    video.addEventListener('timeupdate', () => {
-      if (!video.duration) return;
-      const pct = (video.currentTime / video.duration) * 100;
-      progress.style.width = pct + '%';
-      timeEl.textContent = `${Utils.formatTime(video.currentTime)} / ${Utils.formatTime(video.duration)}`;
-      // Optionally send timeupdate – we can throttle, but it's fine to send every update
-      // The embed may not use it, but we can send it.
-      sendEmbedEvent('timeupdate', { currentTime: video.currentTime, duration: video.duration });
-    });
-
-    // ---------- UI event listeners ----------
-    progWrap.addEventListener('click', e => {
-      const rect = progWrap.getBoundingClientRect();
-      if (video.duration) video.currentTime = ((e.clientX - rect.left) / rect.width) * video.duration;
-    });
-
-    btnPlay.addEventListener('click', togglePlay);
-    playBig.addEventListener('click', togglePlay);
-
-    btnMute.addEventListener('click', () => {
-      video.muted = !video.muted;
-      setIcon(btnMute, video.muted ? 'volume-xmark' : 'volume-high');
-    });
-    volSlider.addEventListener('input', () => {
-      video.volume = volSlider.value;
-    });
-    btnFs.addEventListener('click', () => {
-      if (!document.fullscreenElement) stage.requestFullscreen(); else document.exitFullscreen();
-    });
-
-    urlLoad.addEventListener('click', () => loadUrl(urlInput.value.trim()));
-    urlInput.addEventListener('keydown', e => { if (e.key === 'Enter') loadUrl(urlInput.value.trim()); });
-
-    // ---------- Parse URL parameters (support both 'source' and 'url') ----------
-    const params = new URLSearchParams(window.location.search);
-    const sourceParam = params.get('source');
-    const urlParam = params.get('url');
-    const autoplayParam = params.get('autoplay') === 'true';
-    const initialUrl = sourceParam || urlParam;
-
-    if (initialUrl) {
-      urlInput.value = initialUrl;
-      loadUrl(initialUrl, autoplayParam);
+    } else if (result.type === 'dash') {
+      dashInstance = dashjs.MediaPlayer().create();
+      dashInstance.initialize(video, src, true);
+      dashInstance.on('streamInitialized', onMediaReady);
     } else {
-      // No source given – the player is still ready (idle)
-      setTimeout(sendReadyIfNeeded, 300);
+      video.src = src;
+      video.addEventListener('loadedmetadata', onMediaReady, { once: true });
+      if (autoplay) safePlay();
     }
+  }
 
-    // ---------- Embed postMessage listener ----------
-    window.addEventListener('message', (event) => {
-      const data = event.data;
-      if (!data || data.type !== 'uniplayos') return;
+  function togglePlay() {
+    if (video.paused) safePlay(); else video.pause();
+  }
 
-      switch (data.action) {
-        case 'play':
-          safePlay();
-          break;
-        case 'pause':
-          video.pause();
-          break;
-        case 'togglePlay':
-          togglePlay();
-          break;
-        case 'seek':
-          if (data.time !== undefined) video.currentTime = data.time;
-          break;
-        case 'setVolume':
-          if (data.level !== undefined) {
-            const vol = Math.max(0, Math.min(1, data.level));
-            video.volume = vol;
-            volSlider.value = vol;
-          }
-          break;
-        case 'toggleMute':
-          video.muted = !video.muted;
-          setIcon(btnMute, video.muted ? 'volume-xmark' : 'volume-high');
-          break;
-        case 'toggleFullscreen':
-          if (!document.fullscreenElement) stage.requestFullscreen(); else document.exitFullscreen();
-          break;
-        case 'load':
-          if (data.source) loadUrl(data.source, false);
-          break;
-        case 'destroy':
-          destroyInstances();
-          video.pause();
-          video.src = '';
-          embedFrame.src = '';
-          break;
-        default:
-          // ignore
+  function setIcon(btn, icon) {
+    const i = btn.querySelector('i');
+    if (i) i.className = `fa-solid fa-${icon}`;
+  }
+
+  video.addEventListener('loadedmetadata', () => {
+    updateAspectRatio();
+    sendReadyIfNeeded();
+  });
+
+  video.addEventListener('play', () => {
+    stage.classList.remove('paused');
+    setIcon(btnPlay, 'pause');
+    setIcon(playBig, 'pause');
+    sendEmbedEvent('play');
+  });
+  video.addEventListener('pause', () => {
+    stage.classList.add('paused');
+    setIcon(btnPlay, 'play');
+    setIcon(playBig, 'play');
+    sendEmbedEvent('pause');
+  });
+  video.addEventListener('ended', () => sendEmbedEvent('ended'));
+  video.addEventListener('error', () => {
+    setStatus('Failed to load media.');
+    sendEmbedEvent('error', { message: 'Video error' });
+  });
+
+  video.addEventListener('timeupdate', () => {
+    if (!video.duration) return;
+    const pct = (video.currentTime / video.duration) * 100;
+    progress.style.width = pct + '%';
+    timeEl.textContent = `${Utils.formatTime(video.currentTime)} / ${Utils.formatTime(video.duration)}`;
+    sendEmbedEvent('timeupdate', { currentTime: video.currentTime, duration: video.duration });
+  });
+
+  progWrap.addEventListener('click', (e) => {
+    const rect = progWrap.getBoundingClientRect();
+    if (video.duration) {
+      video.currentTime = ((e.clientX - rect.left) / rect.width) * video.duration;
+    }
+  });
+
+  btnPlay.addEventListener('click', togglePlay);
+  playBig.addEventListener('click', togglePlay);
+
+  btnMute.addEventListener('click', () => {
+    video.muted = !video.muted;
+    setIcon(btnMute, video.muted ? 'volume-xmark' : 'volume-high');
+  });
+  volSlider.addEventListener('input', () => { video.volume = volSlider.value; });
+
+  btnFs.addEventListener('click', () => {
+    if (!document.fullscreenElement) {
+      stage.classList.add('fullscreen');
+      if (stage.requestFullscreen) {
+        stage.requestFullscreen().catch(() => {});
       }
-    });
-  </script>
+    } else {
+      if (document.exitFullscreen) document.exitFullscreen();
+    }
+  });
+
+  document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement) {
+      stage.classList.remove('fullscreen');
+      updateAspectRatio();
+    } else {
+      stage.classList.add('fullscreen');
+    }
+  });
+
+  urlLoad.addEventListener('click', () => loadUrl(urlInput.value.trim()));
+  urlInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') loadUrl(urlInput.value.trim()); });
+
+  const params = new URLSearchParams(window.location.search);
+  const sourceParam = params.get('source') || params.get('url');
+  const autoplayParam = params.get('autoplay') === 'true';
+  if (sourceParam) {
+    urlInput.value = sourceParam;
+    loadUrl(sourceParam, autoplayParam);
+  } else {
+    setTimeout(sendReadyIfNeeded, 300);
+  }
+
+  window.addEventListener('message', (event) => {
+    const data = event.data;
+    if (!data || data.type !== 'uniplayos') return;
+    switch (data.action) {
+      case 'play': safePlay(); break;
+      case 'pause': video.pause(); break;
+      case 'togglePlay': togglePlay(); break;
+      case 'seek': if (data.time !== undefined) video.currentTime = data.time; break;
+      case 'setVolume':
+        if (data.level !== undefined) {
+          const v = Math.max(0, Math.min(1, data.level));
+          video.volume = v; volSlider.value = v;
+        }
+        break;
+      case 'toggleMute':
+        video.muted = !video.muted;
+        setIcon(btnMute, video.muted ? 'volume-xmark' : 'volume-high');
+        break;
+      case 'toggleFullscreen':
+        if (!document.fullscreenElement) {
+          stage.classList.add('fullscreen');
+          if (stage.requestFullscreen) stage.requestFullscreen().catch(() => {});
+        } else {
+          if (document.exitFullscreen) document.exitFullscreen();
+        }
+        break;
+      case 'load': if (data.source) loadUrl(data.source, false); break;
+      case 'destroy':
+        destroyInstances();
+        video.pause();
+        video.src = '';
+        embedFrame.src = '';
+        break;
+      default: break;
+    }
+  });
+</script>
 </body>
 </html>
