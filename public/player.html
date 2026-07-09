@@ -411,6 +411,8 @@
     </div>
     <div id="ctrl-row">
       <button id="btn-play" aria-label="Play/Pause"><i class="fa-solid fa-play"></i></button>
+      <button id="btn-rewind" aria-label="Rewind 10s"><i class="fa-solid fa-backward-step"></i></button>
+      <button id="btn-forward" aria-label="Forward 10s"><i class="fa-solid fa-forward-step"></i></button>
       <span id="time">0:00 / 0:00</span>
       <div id="vol-wrap">
         <button id="btn-mute" aria-label="Mute"><i class="fa-solid fa-volume-high"></i></button>
@@ -438,6 +440,8 @@
   const stage = document.getElementById('stage');
   const embedFrame = document.getElementById('embed-frame');
   const btnPlay = document.getElementById('btn-play');
+  const btnRewind = document.getElementById('btn-rewind');
+  const btnForward = document.getElementById('btn-forward');
   const playBig = document.getElementById('play-big');
   const btnMute = document.getElementById('btn-mute');
   const btnFs = document.getElementById('btn-fs');
@@ -645,6 +649,14 @@
 
   btnPlay.addEventListener('click', togglePlay);
   playBig.addEventListener('click', togglePlay);
+  
+  btnRewind.addEventListener('click', () => {
+    video.currentTime = Math.max(0, video.currentTime - 10);
+  });
+  
+  btnForward.addEventListener('click', () => {
+    video.currentTime = Math.min(video.duration || 0, video.currentTime + 10);
+  });
 
   btnMute.addEventListener('click', () => {
     video.muted = !video.muted;
