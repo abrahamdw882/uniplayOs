@@ -63,6 +63,9 @@
       border-radius: 50%;
       cursor: pointer;
       transition: color 0.15s, background 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     #header button:hover,
@@ -108,7 +111,13 @@
       color: var(--accent);
       font-size: 1.8rem;
       cursor: pointer;
-      transition: transform 0.15s, opacity 0.15s;
+      transition: transform 0.15s, opacity 0.3s ease;
+      opacity: 1;
+    }
+
+    #play-big.hidden {
+      opacity: 0;
+      pointer-events: none;
     }
 
     #play-big:hover {
@@ -145,12 +154,33 @@
       margin: 0;
     }
 
+    #seek-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      opacity: 1;
+      pointer-events: all;
+    }
+    #seek-slider::-moz-range-thumb {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      border: none;
+      pointer-events: all;
+    }
+
     #row {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       padding: 10px 12px;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
     }
 
     #time {
@@ -158,16 +188,37 @@
       color: #bbb;
       font-size: 0.86rem;
       min-width: 90px;
+      white-space: nowrap;
     }
 
     #vol {
-      width: 90px;
+      width: 80px;
       accent-color: var(--accent);
       cursor: pointer;
+      height: 4px;
+    }
+    
+    #vol::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+    }
+    #vol::-moz-range-thumb {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      border: none;
     }
 
     .spacer {
       flex: 1;
+      min-width: 4px;
     }
 
     #status-bar {
@@ -199,13 +250,13 @@
 
       #controls button,
       #header button {
-        width: 34px;
-        height: 34px;
-        font-size: 0.92rem;
+        width: 32px;
+        height: 32px;
+        font-size: 0.85rem;
       }
 
       #vol {
-        width: 60px;
+        width: 50px;
       }
 
       #play-big {
@@ -216,7 +267,7 @@
 
       #time {
         font-size: 0.76rem;
-        min-width: 74px;
+        min-width: 70px;
       }
     }
   </style>
@@ -290,6 +341,7 @@
     let isReadySent = false;
     let isSeeking = false;
     let isDebugMode = false;
+    let bigPlayTimeout = null;
 
     function setStatus(msg) {
       statusBar.textContent = msg || '';
@@ -358,6 +410,7 @@
       if (!rawUrl) return;
       destroyInstances();
       isReadySent = false;
+      playBig.classList.remove('hidden');
 
       try {
         var resolver = new Resolver();
@@ -437,6 +490,26 @@
       timeEl.textContent = Utils.formatTime(video.currentTime) + ' / ' + Utils.formatTime(video.duration);
     }
 
+    function showBigPlay() {
+        clearTimeout(bigPlayTimeout);
+        if (video.paused) {
+            playBig.classList.remove('hidden');
+        }
+    }
+
+    function hideBigPlay() {
+        if (!video.paused) {
+            clearTimeout(bigPlayTimeout);
+            bigPlayTimeout = setTimeout(() => {
+                playBig.classList.add('hidden');
+            }, 1500);
+        }
+    }
+
+    stage.addEventListener('mousemove', showBigPlay);
+    stage.addEventListener('mouseleave', hideBigPlay);
+    stage.addEventListener('click', showBigPlay);
+
     video.addEventListener('loadedmetadata', function() {
       updateAspectRatio();
       sendReadyIfNeeded();
@@ -446,16 +519,19 @@
       setIcon(btnPlay, 'pause');
       setIcon(playBig, 'pause');
       sendEmbedEvent('play');
+      hideBigPlay();
     });
 
     video.addEventListener('pause', function() {
       setIcon(btnPlay, 'play');
       setIcon(playBig, 'play');
       sendEmbedEvent('pause');
+      playBig.classList.remove('hidden');
     });
 
     video.addEventListener('ended', function() {
       sendEmbedEvent('ended');
+      playBig.classList.remove('hidden');
     });
 
     video.addEventListener('error', function() {
@@ -493,7 +569,10 @@
     });
 
     btnPlay.addEventListener('click', togglePlay);
-    playBig.addEventListener('click', togglePlay);
+    playBig.addEventListener('click', function(e) {
+        e.stopPropagation();
+        togglePlay();
+    });
 
     btnRewind.addEventListener('click', function() {
       video.currentTime = Math.max(0, video.currentTime - 10);
