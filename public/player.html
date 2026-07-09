@@ -119,16 +119,84 @@
       cursor: pointer;
       border-radius: 4px;
       transition: height 0.1s;
+      display: flex;
+      align-items: center;
     }
-    #progress-wrap:hover { height: 7px; }
+
+    #progress-wrap:hover {
+      height: 7px;
+    }
+
+    #progress-wrap input[type="range"] {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      cursor: pointer;
+      margin: 0;
+      padding: 0;
+      top: 0;
+      left: 0;
+      z-index: 2;
+    }
+
+    #progress-wrap input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(200, 255, 0, 0.3);
+      transition: transform 0.15s;
+      margin-top: -4.5px;
+    }
+
+    #progress-wrap input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    #progress-wrap input[type="range"]::-moz-range-thumb {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      border: none;
+      box-shadow: 0 0 10px rgba(200, 255, 0, 0.3);
+    }
+
+    #progress-wrap input[type="range"]::-moz-range-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    #progress-wrap input[type="range"]::-webkit-slider-runnable-track {
+      width: 100%;
+      height: 100%;
+      background: transparent;
+      border: none;
+    }
+
+    #progress-wrap input[type="range"]::-moz-range-track {
+      width: 100%;
+      height: 100%;
+      background: transparent;
+      border: none;
+    }
 
     #progress-fill {
+      position: absolute;
+      top: 0;
+      left: 0;
       height: 100%;
       background: var(--accent);
       width: 0%;
       pointer-events: none;
       border-radius: 4px;
-      transition: width 0.05s linear;
+      z-index: 1;
     }
 
     #ctrl-row {
@@ -180,16 +248,20 @@
       cursor: pointer;
     }
 
-    #url-bar {
-      display: flex;
-      gap: 0.5rem;
+    #debug-bar {
+      display: none;
       padding: 0.5rem 0.75rem 0.75rem;
       background: var(--surface);
       border-top: 1px solid var(--border);
       flex-wrap: wrap;
+      gap: 0.5rem;
     }
 
-    #url-input {
+    #debug-bar.visible {
+      display: flex;
+    }
+
+    #debug-bar input {
       flex: 1;
       background: var(--bg);
       border: 1px solid var(--border);
@@ -201,9 +273,12 @@
       border-radius: 6px;
       min-width: 150px;
     }
-    #url-input:focus { border-color: var(--accent); }
 
-    #url-load {
+    #debug-bar input:focus {
+      border-color: var(--accent);
+    }
+
+    #debug-bar button {
       border: 1px solid var(--accent);
       color: var(--accent);
       padding: 0.5rem 1.2rem;
@@ -211,9 +286,15 @@
       letter-spacing: 0.05em;
       border-radius: 6px;
       background: transparent;
+      cursor: pointer;
       transition: 0.15s;
+      font-family: inherit;
     }
-    #url-load:hover { background: var(--accent); color: var(--bg); }
+
+    #debug-bar button:hover {
+      background: var(--accent);
+      color: var(--bg);
+    }
 
     #status {
       font-size: 0.72rem;
@@ -223,6 +304,11 @@
       min-height: 1.6rem;
       border-top: 1px solid var(--border);
       font-family: monospace;
+      display: none;
+    }
+
+    #status.visible {
+      display: block;
     }
 
     #stage.fullscreen {
@@ -258,9 +344,9 @@
       border-top: 1px solid rgba(255,255,255,0.1);
     }
 
-    #stage.fullscreen #url-bar,
+    #stage.fullscreen #debug-bar,
     #stage.fullscreen #status {
-      display: none;
+      display: none !important;
     }
 
     @media (max-width: 600px) {
@@ -268,6 +354,38 @@
       #vol { width: 50px; }
       #time { font-size: 0.7rem; min-width: 80px; }
       #play-big { width: 56px; height: 56px; font-size: 1.4rem; }
+      #progress-wrap input[type="range"]::-webkit-slider-thumb {
+        width: 16px;
+        height: 16px;
+        margin-top: -5.5px;
+      }
+      #progress-wrap input[type="range"]::-moz-range-thumb {
+        width: 16px;
+        height: 16px;
+      }
+      #debug-bar {
+        padding: 0.4rem 0.5rem 0.6rem;
+      }
+      #debug-bar input {
+        font-size: 0.7rem;
+        padding: 0.4rem 0.6rem;
+      }
+      #debug-bar button {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.7rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      #progress-wrap input[type="range"]::-webkit-slider-thumb {
+        width: 14px;
+        height: 14px;
+        margin-top: -4.5px;
+      }
+      #progress-wrap input[type="range"]::-moz-range-thumb {
+        width: 14px;
+        height: 14px;
+      }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -289,6 +407,7 @@
   <div id="controls">
     <div id="progress-wrap" role="slider" aria-label="Seek" tabindex="0">
       <div id="progress-fill"></div>
+      <input type="range" id="seek-slider" min="0" max="100" value="0" step="0.01" aria-label="Seek">
     </div>
     <div id="ctrl-row">
       <button id="btn-play" aria-label="Play/Pause"><i class="fa-solid fa-play"></i></button>
@@ -301,7 +420,7 @@
     </div>
   </div>
 
-  <div id="url-bar">
+  <div id="debug-bar">
     <input id="url-input" type="url" placeholder="Paste video URL (MP4, HLS, DASH, YouTube…)" spellcheck="false">
     <button id="url-load">Load</button>
   </div>
@@ -324,17 +443,24 @@
   const btnFs = document.getElementById('btn-fs');
   const progress = document.getElementById('progress-fill');
   const progWrap = document.getElementById('progress-wrap');
+  const seekSlider = document.getElementById('seek-slider');
   const timeEl = document.getElementById('time');
   const volSlider = document.getElementById('vol');
   const urlInput = document.getElementById('url-input');
   const urlLoad = document.getElementById('url-load');
   const status = document.getElementById('status');
-
-  function setStatus(msg) { status.textContent = msg; }
+  const debugBar = document.getElementById('debug-bar');
 
   let hlsInstance = null;
   let dashInstance = null;
   let isReadySent = false;
+  let isSeeking = false;
+  let isDebugMode = false;
+
+  function setStatus(msg) {
+    status.textContent = msg;
+    status.classList.toggle('visible', !!msg && isDebugMode);
+  }
 
   function sendEmbedEvent(action, payload = {}) {
     window.parent.postMessage({ type: 'uniplayos', action, ...payload }, '*');
@@ -373,62 +499,79 @@
     if (p !== undefined) p.catch(() => {});
   }
 
+  function getEmbedUrl(url) {
+    if (Utils.isYouTube(url)) {
+      const match = url.match(/(?:v=|youtu\.be\/|shorts\/)([a-zA-Z0-9_-]{11})/);
+      return match ? `https://www.youtube.com/embed/${match[1]}?autoplay=1&enablejsapi=1` : url;
+    }
+    if (Utils.isVimeo(url)) {
+      const match = url.match(/vimeo\.com\/(\d+)/);
+      return match ? `https://player.vimeo.com/video/${match[1]}?autoplay=1` : url;
+    }
+    return url;
+  }
+
   function loadUrl(rawUrl, autoplay = false) {
     if (!rawUrl) return;
     destroyInstances();
     isReadySent = false;
 
-    const resolver = new Resolver();
-    const result = resolver.resolve(rawUrl);
-    const src = result.proxyRequired ? resolver.getProxyUrl(rawUrl) : rawUrl;
+    try {
+      const resolver = new Resolver();
+      const result = resolver.resolve(rawUrl);
+      const src = result.proxyRequired ? resolver.getProxyUrl(rawUrl) : rawUrl;
 
-    setStatus('Loading…');
+      if (isDebugMode) setStatus('Loading…');
 
-    if (result.strategy === 'iframe') {
-      showEmbed();
-      embedFrame.src = result.embedUrl || rawUrl;
-      setStatus('');
+      if (result.strategy === 'iframe') {
+        showEmbed();
+        embedFrame.src = getEmbedUrl(rawUrl);
+        if (isDebugMode) setStatus('');
+        stage.style.aspectRatio = '16 / 9';
+        sendReadyIfNeeded();
+        if (autoplay) { }
+        return;
+      }
+
+      showVideo();
       stage.style.aspectRatio = '16 / 9';
-      sendReadyIfNeeded();
-      if (autoplay) { }
-      return;
-    }
 
-    showVideo();
-    stage.style.aspectRatio = '16 / 9';
+      const onMediaReady = () => {
+        if (isDebugMode) setStatus('');
+        updateAspectRatio();
+        sendReadyIfNeeded();
+        if (autoplay) safePlay();
+      };
 
-    const onMediaReady = () => {
-      setStatus('');
-      updateAspectRatio();
-      sendReadyIfNeeded();
-      if (autoplay) safePlay();
-    };
-
-    if (result.type === 'hls') {
-      if (Hls.isSupported()) {
-        hlsInstance = new Hls();
-        hlsInstance.loadSource(src);
-        hlsInstance.attachMedia(video);
-        hlsInstance.on(Hls.Events.MANIFEST_PARSED, onMediaReady);
-        hlsInstance.on(Hls.Events.ERROR, (_, data) => {
-          if (data.fatal) {
-            setStatus('Stream error.');
-            sendEmbedEvent('error', { message: 'HLS fatal error' });
-          }
-        });
-      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      if (result.type === 'hls') {
+        if (Hls.isSupported()) {
+          hlsInstance = new Hls();
+          hlsInstance.loadSource(src);
+          hlsInstance.attachMedia(video);
+          hlsInstance.on(Hls.Events.MANIFEST_PARSED, onMediaReady);
+          hlsInstance.on(Hls.Events.ERROR, (_, data) => {
+            if (data.fatal) {
+              if (isDebugMode) setStatus('Stream error.');
+              sendEmbedEvent('error', { message: 'HLS fatal error' });
+            }
+          });
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+          video.src = src;
+          video.addEventListener('loadedmetadata', onMediaReady, { once: true });
+          if (autoplay) safePlay();
+        }
+      } else if (result.type === 'dash') {
+        dashInstance = dashjs.MediaPlayer().create();
+        dashInstance.initialize(video, src, true);
+        dashInstance.on('streamInitialized', onMediaReady);
+      } else {
         video.src = src;
         video.addEventListener('loadedmetadata', onMediaReady, { once: true });
         if (autoplay) safePlay();
       }
-    } else if (result.type === 'dash') {
-      dashInstance = dashjs.MediaPlayer().create();
-      dashInstance.initialize(video, src, true);
-      dashInstance.on('streamInitialized', onMediaReady);
-    } else {
-      video.src = src;
-      video.addEventListener('loadedmetadata', onMediaReady, { once: true });
-      if (autoplay) safePlay();
+    } catch (err) {
+      if (isDebugMode) setStatus('Invalid URL');
+      console.error('Resolver error:', err);
     }
   }
 
@@ -439,6 +582,13 @@
   function setIcon(btn, icon) {
     const i = btn.querySelector('i');
     if (i) i.className = `fa-solid fa-${icon}`;
+  }
+
+  function setDebugMode(enabled) {
+    isDebugMode = enabled;
+    debugBar.classList.toggle('visible', enabled);
+    status.classList.toggle('visible', enabled && status.textContent);
+    if (!enabled) setStatus('');
   }
 
   video.addEventListener('loadedmetadata', () => {
@@ -460,7 +610,7 @@
   });
   video.addEventListener('ended', () => sendEmbedEvent('ended'));
   video.addEventListener('error', () => {
-    setStatus('Failed to load media.');
+    if (isDebugMode) setStatus('Failed to load media.');
     sendEmbedEvent('error', { message: 'Video error' });
   });
 
@@ -468,14 +618,28 @@
     if (!video.duration) return;
     const pct = (video.currentTime / video.duration) * 100;
     progress.style.width = pct + '%';
+    if (!isSeeking) {
+      seekSlider.value = pct;
+    }
     timeEl.textContent = `${Utils.formatTime(video.currentTime)} / ${Utils.formatTime(video.duration)}`;
     sendEmbedEvent('timeupdate', { currentTime: video.currentTime, duration: video.duration });
   });
 
-  progWrap.addEventListener('click', (e) => {
-    const rect = progWrap.getBoundingClientRect();
+  seekSlider.addEventListener('input', (e) => {
+    isSeeking = true;
+    const pct = parseFloat(e.target.value);
+    progress.style.width = pct + '%';
     if (video.duration) {
-      video.currentTime = ((e.clientX - rect.left) / rect.width) * video.duration;
+      const time = (pct / 100) * video.duration;
+      timeEl.textContent = `${Utils.formatTime(time)} / ${Utils.formatTime(video.duration)}`;
+    }
+  });
+
+  seekSlider.addEventListener('change', (e) => {
+    isSeeking = false;
+    const pct = parseFloat(e.target.value);
+    if (video.duration) {
+      video.currentTime = (pct / 100) * video.duration;
     }
   });
 
@@ -514,11 +678,18 @@
   const params = new URLSearchParams(window.location.search);
   const sourceParam = params.get('source') || params.get('url');
   const autoplayParam = params.get('autoplay') === 'true';
+  const debugParam = params.get('debug') === 'true';
+
+  if (debugParam || params.get('debug') === '') {
+    setDebugMode(true);
+  }
+
   if (sourceParam) {
     urlInput.value = sourceParam;
     loadUrl(sourceParam, autoplayParam);
   } else {
     setTimeout(sendReadyIfNeeded, 300);
+    if (!debugParam) setStatus('');
   }
 
   window.addEventListener('message', (event) => {
@@ -553,6 +724,9 @@
         video.pause();
         video.src = '';
         embedFrame.src = '';
+        break;
+      case 'setDebug':
+        setDebugMode(data.enabled === true);
         break;
       default: break;
     }
