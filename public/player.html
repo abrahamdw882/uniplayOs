@@ -561,6 +561,7 @@
     let isReadySent = false;
     let isSeeking = false;
     let isDebugMode = false;
+    let loadTimeout = null;
 
     function showLoader(show) {
       loader.classList.toggle('active', show);
@@ -626,6 +627,13 @@
       isReadySent = false;
       showLoader(true);
 
+      if (loadTimeout) clearTimeout(loadTimeout);
+      loadTimeout = setTimeout(() => {
+        if (loader.classList.contains('active')) {
+          if (isDebugMode) setStatus('Loading is taking longer than expected...');
+        }
+      }, 3000);
+
       try {
         const resolver = new Resolver();
         const result = resolver.resolve(rawUrl);
@@ -640,6 +648,7 @@
           stage.style.aspectRatio = '16 / 9';
           sendReadyIfNeeded();
           showLoader(false);
+          if (loadTimeout) clearTimeout(loadTimeout);
           if (autoplay) { }
           return;
         }
@@ -649,6 +658,7 @@
 
         const onMediaReady = () => {
           showLoader(false);
+          if (loadTimeout) clearTimeout(loadTimeout);
           if (isDebugMode) setStatus('');
           updateAspectRatio();
           sendReadyIfNeeded();
@@ -657,6 +667,7 @@
 
         const onError = (msg) => {
           showLoader(false);
+          if (loadTimeout) clearTimeout(loadTimeout);
           if (isDebugMode) setStatus(msg || 'Failed to load media.');
           sendEmbedEvent('error', { message: msg || 'Media error' });
         };
@@ -693,6 +704,7 @@
         }
       } catch (err) {
         showLoader(false);
+        if (loadTimeout) clearTimeout(loadTimeout);
         if (isDebugMode) setStatus('Invalid URL');
         console.error('Resolver error:', err);
       }
@@ -718,6 +730,7 @@
       updateAspectRatio();
       sendReadyIfNeeded();
       showLoader(false);
+      if (loadTimeout) clearTimeout(loadTimeout);
     });
 
     video.addEventListener('play', () => {
@@ -735,6 +748,7 @@
     video.addEventListener('ended', () => sendEmbedEvent('ended'));
     video.addEventListener('error', () => {
       showLoader(false);
+      if (loadTimeout) clearTimeout(loadTimeout);
       if (isDebugMode) setStatus('Failed to load media.');
       sendEmbedEvent('error', { message: 'Video error' });
     });
@@ -861,6 +875,7 @@
           video.src = '';
           embedFrame.src = '';
           showLoader(false);
+          if (loadTimeout) clearTimeout(loadTimeout);
           break;
         case 'setDebug':
           setDebugMode(data.enabled === true);
