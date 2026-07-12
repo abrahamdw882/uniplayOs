@@ -70,6 +70,68 @@
       object-fit: contain;
     }
 
+    #loader {
+      position: absolute;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(2px);
+      z-index: 20;
+      pointer-events: none;
+    }
+    #loader.active {
+      display: flex;
+    }
+
+    .samsung-spinner {
+      width: 64px;
+      height: 64px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .samsung-spinner .ring {
+      position: absolute;
+      border-radius: 50%;
+      border: 4px solid transparent;
+      border-top-color: var(--accent);
+      border-bottom-color: var(--accent);
+      animation: spin 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+      will-change: transform;
+    }
+
+    .samsung-spinner .ring:nth-child(1) {
+      width: 64px;
+      height: 64px;
+      animation-duration: 1.2s;
+      border-width: 4px;
+    }
+    .samsung-spinner .ring:nth-child(2) {
+      width: 44px;
+      height: 44px;
+      animation-duration: 0.9s;
+      border-width: 3px;
+      border-top-color: #fff;
+      border-bottom-color: #fff;
+    }
+    .samsung-spinner .ring:nth-child(3) {
+      width: 24px;
+      height: 24px;
+      animation-duration: 0.6s;
+      border-width: 3px;
+      border-top-color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
     #overlay {
       position: absolute;
       inset: 0;
@@ -77,6 +139,7 @@
       align-items: center;
       justify-content: center;
       pointer-events: none;
+      z-index: 10;
     }
 
     #play-big {
@@ -425,6 +488,15 @@
   <div id="stage" class="paused">
     <video id="video" playsinline></video>
     <iframe id="embed-frame" allowfullscreen allow="autoplay"></iframe>
+
+    <div id="loader">
+      <div class="samsung-spinner">
+        <div class="ring"></div>
+        <div class="ring"></div>
+        <div class="ring"></div>
+      </div>
+    </div>
+
     <div id="overlay">
       <button id="play-big" aria-label="Play"><i class="fa-solid fa-play"></i></button>
     </div>
@@ -463,313 +535,340 @@
 <script src="/js/utils/api.js"></script>
 
 <script>
-  const video = document.getElementById('video');
-  const stage = document.getElementById('stage');
-  const embedFrame = document.getElementById('embed-frame');
-  const btnPlay = document.getElementById('btn-play');
-  const btnRewind = document.getElementById('btn-rewind');
-  const btnForward = document.getElementById('btn-forward');
-  const playBig = document.getElementById('play-big');
-  const btnMute = document.getElementById('btn-mute');
-  const btnFs = document.getElementById('btn-fs');
-  const progress = document.getElementById('progress-fill');
-  const progWrap = document.getElementById('progress-wrap');
-  const seekSlider = document.getElementById('seek-slider');
-  const timeEl = document.getElementById('time');
-  const volSlider = document.getElementById('vol');
-  const urlInput = document.getElementById('url-input');
-  const urlLoad = document.getElementById('url-load');
-  const status = document.getElementById('status');
-  const debugBar = document.getElementById('debug-bar');
+  (function() {
+    const video = document.getElementById('video');
+    const stage = document.getElementById('stage');
+    const embedFrame = document.getElementById('embed-frame');
+    const btnPlay = document.getElementById('btn-play');
+    const btnRewind = document.getElementById('btn-rewind');
+    const btnForward = document.getElementById('btn-forward');
+    const playBig = document.getElementById('play-big');
+    const btnMute = document.getElementById('btn-mute');
+    const btnFs = document.getElementById('btn-fs');
+    const progress = document.getElementById('progress-fill');
+    const progWrap = document.getElementById('progress-wrap');
+    const seekSlider = document.getElementById('seek-slider');
+    const timeEl = document.getElementById('time');
+    const volSlider = document.getElementById('vol');
+    const urlInput = document.getElementById('url-input');
+    const urlLoad = document.getElementById('url-load');
+    const status = document.getElementById('status');
+    const debugBar = document.getElementById('debug-bar');
+    const loader = document.getElementById('loader');
 
-  let hlsInstance = null;
-  let dashInstance = null;
-  let isReadySent = false;
-  let isSeeking = false;
-  let isDebugMode = false;
+    let hlsInstance = null;
+    let dashInstance = null;
+    let isReadySent = false;
+    let isSeeking = false;
+    let isDebugMode = false;
 
-  function setStatus(msg) {
-    status.textContent = msg;
-    status.classList.toggle('visible', !!msg && isDebugMode);
-  }
-
-  function sendEmbedEvent(action, payload = {}) {
-    window.parent.postMessage({ type: 'uniplayos', action, ...payload }, '*');
-  }
-
-  function sendReadyIfNeeded() {
-    if (!isReadySent) {
-      isReadySent = true;
-      sendEmbedEvent('ready');
+    function showLoader(show) {
+      loader.classList.toggle('active', show);
     }
-  }
 
-  function updateAspectRatio() {
-    if (!video.videoWidth || !video.videoHeight) return;
-    const w = video.videoWidth;
-    const h = video.videoHeight;
-    stage.style.aspectRatio = `${w} / ${h}`;
-  }
-
-  function destroyInstances() {
-    if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
-    if (dashInstance) { dashInstance.reset(); dashInstance = null; }
-  }
-
-  function showVideo() {
-    video.style.display = 'block';
-    embedFrame.style.display = 'none';
-  }
-  function showEmbed() {
-    video.style.display = 'none';
-    embedFrame.style.display = 'block';
-  }
-
-  function safePlay() {
-    const p = video.play();
-    if (p !== undefined) p.catch(() => {});
-  }
-
-  function getEmbedUrl(url) {
-    if (Utils.isYouTube(url)) {
-      const match = url.match(/(?:v=|youtu\.be\/|shorts\/)([a-zA-Z0-9_-]{11})/);
-      return match ? `https://www.youtube.com/embed/${match[1]}?autoplay=1&enablejsapi=1` : url;
+    function setStatus(msg) {
+      status.textContent = msg;
+      status.classList.toggle('visible', !!msg && isDebugMode);
     }
-    if (Utils.isVimeo(url)) {
-      const match = url.match(/vimeo\.com\/(\d+)/);
-      return match ? `https://player.vimeo.com/video/${match[1]}?autoplay=1` : url;
+
+    function sendEmbedEvent(action, payload = {}) {
+      window.parent.postMessage({ type: 'uniplayos', action, ...payload }, '*');
     }
-    return url;
-  }
 
-  function loadUrl(rawUrl, autoplay = false) {
-    if (!rawUrl) return;
-    destroyInstances();
-    isReadySent = false;
-
-    try {
-      const resolver = new Resolver();
-      const result = resolver.resolve(rawUrl);
-      const src = result.proxyRequired ? resolver.getProxyUrl(rawUrl) : rawUrl;
-
-      if (isDebugMode) setStatus('Loading…');
-
-      if (result.strategy === 'iframe') {
-        showEmbed();
-        embedFrame.src = getEmbedUrl(rawUrl);
-        if (isDebugMode) setStatus('');
-        stage.style.aspectRatio = '16 / 9';
-        sendReadyIfNeeded();
-        if (autoplay) { }
-        return;
+    function sendReadyIfNeeded() {
+      if (!isReadySent) {
+        isReadySent = true;
+        sendEmbedEvent('ready');
       }
+    }
 
-      showVideo();
-      stage.style.aspectRatio = '16 / 9';
+    function updateAspectRatio() {
+      if (!video.videoWidth || !video.videoHeight) return;
+      const w = video.videoWidth;
+      const h = video.videoHeight;
+      stage.style.aspectRatio = `${w} / ${h}`;
+    }
 
-      const onMediaReady = () => {
-        if (isDebugMode) setStatus('');
-        updateAspectRatio();
-        sendReadyIfNeeded();
-        if (autoplay) safePlay();
-      };
+    function destroyInstances() {
+      if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+      if (dashInstance) { dashInstance.reset(); dashInstance = null; }
+    }
 
-      if (result.type === 'hls') {
-        if (Hls.isSupported()) {
-          hlsInstance = new Hls();
-          hlsInstance.loadSource(src);
-          hlsInstance.attachMedia(video);
-          hlsInstance.on(Hls.Events.MANIFEST_PARSED, onMediaReady);
-          hlsInstance.on(Hls.Events.ERROR, (_, data) => {
-            if (data.fatal) {
-              if (isDebugMode) setStatus('Stream error.');
-              sendEmbedEvent('error', { message: 'HLS fatal error' });
-            }
-          });
-        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    function showVideo() {
+      video.style.display = 'block';
+      embedFrame.style.display = 'none';
+    }
+    function showEmbed() {
+      video.style.display = 'none';
+      embedFrame.style.display = 'block';
+    }
+
+    function safePlay() {
+      const p = video.play();
+      if (p !== undefined) p.catch(() => {});
+    }
+
+    function getEmbedUrl(url) {
+      if (Utils.isYouTube(url)) {
+        const match = url.match(/(?:v=|youtu\.be\/|shorts\/)([a-zA-Z0-9_-]{11})/);
+        return match ? `https://www.youtube.com/embed/${match[1]}?autoplay=1&enablejsapi=1` : url;
+      }
+      if (Utils.isVimeo(url)) {
+        const match = url.match(/vimeo\.com\/(\d+)/);
+        return match ? `https://player.vimeo.com/video/${match[1]}?autoplay=1` : url;
+      }
+      return url;
+    }
+
+    function loadUrl(rawUrl, autoplay = false) {
+      if (!rawUrl) return;
+      destroyInstances();
+      isReadySent = false;
+      showLoader(true);
+
+      try {
+        const resolver = new Resolver();
+        const result = resolver.resolve(rawUrl);
+        const src = result.proxyRequired ? resolver.getProxyUrl(rawUrl) : rawUrl;
+
+        if (isDebugMode) setStatus('Loading…');
+
+        if (result.strategy === 'iframe') {
+          showEmbed();
+          embedFrame.src = getEmbedUrl(rawUrl);
+          if (isDebugMode) setStatus('');
+          stage.style.aspectRatio = '16 / 9';
+          sendReadyIfNeeded();
+          showLoader(false);
+          if (autoplay) { }
+          return;
+        }
+
+        showVideo();
+        stage.style.aspectRatio = '16 / 9';
+
+        const onMediaReady = () => {
+          showLoader(false);
+          if (isDebugMode) setStatus('');
+          updateAspectRatio();
+          sendReadyIfNeeded();
+          if (autoplay) safePlay();
+        };
+
+        const onError = (msg) => {
+          showLoader(false);
+          if (isDebugMode) setStatus(msg || 'Failed to load media.');
+          sendEmbedEvent('error', { message: msg || 'Media error' });
+        };
+
+        if (result.type === 'hls') {
+          if (Hls.isSupported()) {
+            hlsInstance = new Hls();
+            hlsInstance.loadSource(src);
+            hlsInstance.attachMedia(video);
+            hlsInstance.on(Hls.Events.MANIFEST_PARSED, onMediaReady);
+            hlsInstance.on(Hls.Events.ERROR, (_, data) => {
+              if (data.fatal) {
+                onError('HLS fatal error');
+              }
+            });
+          } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            video.src = src;
+            video.addEventListener('loadedmetadata', onMediaReady, { once: true });
+            video.addEventListener('error', () => onError('Failed to load HLS stream'), { once: true });
+            if (autoplay) safePlay();
+          } else {
+            onError('HLS not supported');
+          }
+        } else if (result.type === 'dash') {
+          dashInstance = dashjs.MediaPlayer().create();
+          dashInstance.initialize(video, src, true);
+          dashInstance.on('streamInitialized', onMediaReady);
+          dashInstance.on('streamError', () => onError('DASH stream error'));
+        } else {
           video.src = src;
           video.addEventListener('loadedmetadata', onMediaReady, { once: true });
+          video.addEventListener('error', () => onError('Failed to load media'), { once: true });
           if (autoplay) safePlay();
         }
-      } else if (result.type === 'dash') {
-        dashInstance = dashjs.MediaPlayer().create();
-        dashInstance.initialize(video, src, true);
-        dashInstance.on('streamInitialized', onMediaReady);
-      } else {
-        video.src = src;
-        video.addEventListener('loadedmetadata', onMediaReady, { once: true });
-        if (autoplay) safePlay();
+      } catch (err) {
+        showLoader(false);
+        if (isDebugMode) setStatus('Invalid URL');
+        console.error('Resolver error:', err);
       }
-    } catch (err) {
-      if (isDebugMode) setStatus('Invalid URL');
-      console.error('Resolver error:', err);
     }
-  }
 
-  function togglePlay() {
-    if (video.paused) safePlay(); else video.pause();
-  }
-
-  function setIcon(btn, icon) {
-    const i = btn.querySelector('i');
-    if (i) i.className = `fa-solid fa-${icon}`;
-  }
-
-  function setDebugMode(enabled) {
-    isDebugMode = enabled;
-    debugBar.classList.toggle('visible', enabled);
-    status.classList.toggle('visible', enabled && status.textContent);
-    if (!enabled) setStatus('');
-  }
-
-  video.addEventListener('loadedmetadata', () => {
-    updateAspectRatio();
-    sendReadyIfNeeded();
-  });
-
-  video.addEventListener('play', () => {
-    stage.classList.remove('paused');
-    setIcon(btnPlay, 'pause');
-    setIcon(playBig, 'pause');
-    sendEmbedEvent('play');
-  });
-  video.addEventListener('pause', () => {
-    stage.classList.add('paused');
-    setIcon(btnPlay, 'play');
-    setIcon(playBig, 'play');
-    sendEmbedEvent('pause');
-  });
-  video.addEventListener('ended', () => sendEmbedEvent('ended'));
-  video.addEventListener('error', () => {
-    if (isDebugMode) setStatus('Failed to load media.');
-    sendEmbedEvent('error', { message: 'Video error' });
-  });
-
-  video.addEventListener('timeupdate', () => {
-    if (!video.duration) return;
-    const pct = (video.currentTime / video.duration) * 100;
-    progress.style.width = pct + '%';
-    if (!isSeeking) {
-      seekSlider.value = pct;
+    function togglePlay() {
+      if (video.paused) safePlay(); else video.pause();
     }
-    timeEl.textContent = `${Utils.formatTime(video.currentTime)} / ${Utils.formatTime(video.duration)}`;
-    sendEmbedEvent('timeupdate', { currentTime: video.currentTime, duration: video.duration });
-  });
 
-  seekSlider.addEventListener('input', (e) => {
-    isSeeking = true;
-    const pct = parseFloat(e.target.value);
-    progress.style.width = pct + '%';
-    if (video.duration) {
-      const time = (pct / 100) * video.duration;
-      timeEl.textContent = `${Utils.formatTime(time)} / ${Utils.formatTime(video.duration)}`;
+    function setIcon(btn, icon) {
+      const i = btn.querySelector('i');
+      if (i) i.className = `fa-solid fa-${icon}`;
     }
-  });
 
-  seekSlider.addEventListener('change', (e) => {
-    isSeeking = false;
-    const pct = parseFloat(e.target.value);
-    if (video.duration) {
-      video.currentTime = (pct / 100) * video.duration;
+    function setDebugMode(enabled) {
+      isDebugMode = enabled;
+      debugBar.classList.toggle('visible', enabled);
+      status.classList.toggle('visible', enabled && status.textContent);
+      if (!enabled) setStatus('');
     }
-  });
 
-  btnPlay.addEventListener('click', togglePlay);
-  playBig.addEventListener('click', togglePlay);
-  
-  btnRewind.addEventListener('click', () => {
-    video.currentTime = Math.max(0, video.currentTime - 10);
-  });
-  
-  btnForward.addEventListener('click', () => {
-    video.currentTime = Math.min(video.duration || 0, video.currentTime + 10);
-  });
-
-  btnMute.addEventListener('click', () => {
-    video.muted = !video.muted;
-    setIcon(btnMute, video.muted ? 'volume-xmark' : 'volume-high');
-  });
-  volSlider.addEventListener('input', () => { video.volume = volSlider.value; });
-
-  btnFs.addEventListener('click', () => {
-    if (!document.fullscreenElement) {
-      stage.classList.add('fullscreen');
-      if (stage.requestFullscreen) {
-        stage.requestFullscreen().catch(() => {});
-      }
-    } else {
-      if (document.exitFullscreen) document.exitFullscreen();
-    }
-  });
-
-  document.addEventListener('fullscreenchange', () => {
-    if (!document.fullscreenElement) {
-      stage.classList.remove('fullscreen');
+    video.addEventListener('loadedmetadata', () => {
       updateAspectRatio();
+      sendReadyIfNeeded();
+      showLoader(false);
+    });
+
+    video.addEventListener('play', () => {
+      stage.classList.remove('paused');
+      setIcon(btnPlay, 'pause');
+      setIcon(playBig, 'pause');
+      sendEmbedEvent('play');
+    });
+    video.addEventListener('pause', () => {
+      stage.classList.add('paused');
+      setIcon(btnPlay, 'play');
+      setIcon(playBig, 'play');
+      sendEmbedEvent('pause');
+    });
+    video.addEventListener('ended', () => sendEmbedEvent('ended'));
+    video.addEventListener('error', () => {
+      showLoader(false);
+      if (isDebugMode) setStatus('Failed to load media.');
+      sendEmbedEvent('error', { message: 'Video error' });
+    });
+
+    video.addEventListener('timeupdate', () => {
+      if (!video.duration) return;
+      const pct = (video.currentTime / video.duration) * 100;
+      progress.style.width = pct + '%';
+      if (!isSeeking) {
+        seekSlider.value = pct;
+      }
+      timeEl.textContent = `${Utils.formatTime(video.currentTime)} / ${Utils.formatTime(video.duration)}`;
+      sendEmbedEvent('timeupdate', { currentTime: video.currentTime, duration: video.duration });
+    });
+
+    seekSlider.addEventListener('input', (e) => {
+      isSeeking = true;
+      const pct = parseFloat(e.target.value);
+      progress.style.width = pct + '%';
+      if (video.duration) {
+        const time = (pct / 100) * video.duration;
+        timeEl.textContent = `${Utils.formatTime(time)} / ${Utils.formatTime(video.duration)}`;
+      }
+    });
+
+    seekSlider.addEventListener('change', (e) => {
+      isSeeking = false;
+      const pct = parseFloat(e.target.value);
+      if (video.duration) {
+        video.currentTime = (pct / 100) * video.duration;
+      }
+    });
+
+    btnPlay.addEventListener('click', togglePlay);
+    playBig.addEventListener('click', togglePlay);
+    
+    btnRewind.addEventListener('click', () => {
+      video.currentTime = Math.max(0, video.currentTime - 10);
+    });
+    
+    btnForward.addEventListener('click', () => {
+      video.currentTime = Math.min(video.duration || 0, video.currentTime + 10);
+    });
+
+    btnMute.addEventListener('click', () => {
+      video.muted = !video.muted;
+      setIcon(btnMute, video.muted ? 'volume-xmark' : 'volume-high');
+    });
+    volSlider.addEventListener('input', () => { video.volume = volSlider.value; });
+
+    btnFs.addEventListener('click', () => {
+      if (!document.fullscreenElement) {
+        stage.classList.add('fullscreen');
+        if (stage.requestFullscreen) {
+          stage.requestFullscreen().catch(() => {});
+        }
+      } else {
+        if (document.exitFullscreen) document.exitFullscreen();
+      }
+    });
+
+    document.addEventListener('fullscreenchange', () => {
+      if (!document.fullscreenElement) {
+        stage.classList.remove('fullscreen');
+        updateAspectRatio();
+      } else {
+        stage.classList.add('fullscreen');
+      }
+    });
+
+    urlLoad.addEventListener('click', () => loadUrl(urlInput.value.trim()));
+    urlInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') loadUrl(urlInput.value.trim()); });
+
+    const params = new URLSearchParams(window.location.search);
+    const sourceParam = params.get('source') || params.get('url');
+    const autoplayParam = params.get('autoplay') === 'true';
+    const debugParam = params.get('debug') === 'true';
+
+    if (debugParam || params.get('debug') === '') {
+      setDebugMode(true);
+    }
+
+    if (sourceParam) {
+      urlInput.value = sourceParam;
+      loadUrl(sourceParam, autoplayParam);
     } else {
-      stage.classList.add('fullscreen');
+      setTimeout(() => {
+        sendReadyIfNeeded();
+        showLoader(false);
+      }, 300);
+      if (!debugParam) setStatus('');
     }
-  });
 
-  urlLoad.addEventListener('click', () => loadUrl(urlInput.value.trim()));
-  urlInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') loadUrl(urlInput.value.trim()); });
-
-  const params = new URLSearchParams(window.location.search);
-  const sourceParam = params.get('source') || params.get('url');
-  const autoplayParam = params.get('autoplay') === 'true';
-  const debugParam = params.get('debug') === 'true';
-
-  if (debugParam || params.get('debug') === '') {
-    setDebugMode(true);
-  }
-
-  if (sourceParam) {
-    urlInput.value = sourceParam;
-    loadUrl(sourceParam, autoplayParam);
-  } else {
-    setTimeout(sendReadyIfNeeded, 300);
-    if (!debugParam) setStatus('');
-  }
-
-  window.addEventListener('message', (event) => {
-    const data = event.data;
-    if (!data || data.type !== 'uniplayos') return;
-    switch (data.action) {
-      case 'play': safePlay(); break;
-      case 'pause': video.pause(); break;
-      case 'togglePlay': togglePlay(); break;
-      case 'seek': if (data.time !== undefined) video.currentTime = data.time; break;
-      case 'setVolume':
-        if (data.level !== undefined) {
-          const v = Math.max(0, Math.min(1, data.level));
-          video.volume = v; volSlider.value = v;
-        }
-        break;
-      case 'toggleMute':
-        video.muted = !video.muted;
-        setIcon(btnMute, video.muted ? 'volume-xmark' : 'volume-high');
-        break;
-      case 'toggleFullscreen':
-        if (!document.fullscreenElement) {
-          stage.classList.add('fullscreen');
-          if (stage.requestFullscreen) stage.requestFullscreen().catch(() => {});
-        } else {
-          if (document.exitFullscreen) document.exitFullscreen();
-        }
-        break;
-      case 'load': if (data.source) loadUrl(data.source, false); break;
-      case 'destroy':
-        destroyInstances();
-        video.pause();
-        video.src = '';
-        embedFrame.src = '';
-        break;
-      case 'setDebug':
-        setDebugMode(data.enabled === true);
-        break;
-      default: break;
-    }
-  });
+    window.addEventListener('message', (event) => {
+      const data = event.data;
+      if (!data || data.type !== 'uniplayos') return;
+      switch (data.action) {
+        case 'play': safePlay(); break;
+        case 'pause': video.pause(); break;
+        case 'togglePlay': togglePlay(); break;
+        case 'seek': if (data.time !== undefined) video.currentTime = data.time; break;
+        case 'setVolume':
+          if (data.level !== undefined) {
+            const v = Math.max(0, Math.min(1, data.level));
+            video.volume = v; volSlider.value = v;
+          }
+          break;
+        case 'toggleMute':
+          video.muted = !video.muted;
+          setIcon(btnMute, video.muted ? 'volume-xmark' : 'volume-high');
+          break;
+        case 'toggleFullscreen':
+          if (!document.fullscreenElement) {
+            stage.classList.add('fullscreen');
+            if (stage.requestFullscreen) stage.requestFullscreen().catch(() => {});
+          } else {
+            if (document.exitFullscreen) document.exitFullscreen();
+          }
+          break;
+        case 'load': if (data.source) loadUrl(data.source, false); break;
+        case 'destroy':
+          destroyInstances();
+          video.pause();
+          video.src = '';
+          embedFrame.src = '';
+          showLoader(false);
+          break;
+        case 'setDebug':
+          setDebugMode(data.enabled === true);
+          break;
+        default: break;
+      }
+    });
+  })();
 </script>
 </body>
 </html>
