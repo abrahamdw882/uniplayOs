@@ -432,7 +432,6 @@
       display: none !important;
     }
 
-    /* Desktop specific adjustments */
     @media (min-width: 1024px) {
       #wrapper {
         max-height: 900px;
@@ -616,6 +615,7 @@
     let isSeeking = false;
     let isDebugMode = false;
     let loadTimeout = null;
+    let waitingTimeout = null;
 
     function showLoader(show) {
       loader.classList.toggle('active', show);
@@ -807,6 +807,30 @@
       sendEmbedEvent('error', { message: 'Video error' });
     });
 
+    video.addEventListener('waiting', () => {
+      if (!video.paused) {
+        showLoader(true);
+        if (waitingTimeout) clearTimeout(waitingTimeout);
+        waitingTimeout = setTimeout(() => {
+          if (loader.classList.contains('active')) {
+            if (isDebugMode) setStatus('Buffering...');
+          }
+        }, 500);
+      }
+    });
+
+    video.addEventListener('playing', () => {
+      showLoader(false);
+      if (waitingTimeout) clearTimeout(waitingTimeout);
+      if (isDebugMode) setStatus('');
+    });
+
+    video.addEventListener('canplay', () => {
+      showLoader(false);
+      if (waitingTimeout) clearTimeout(waitingTimeout);
+      if (isDebugMode) setStatus('');
+    });
+
     video.addEventListener('timeupdate', () => {
       if (!video.duration) return;
       const pct = (video.currentTime / video.duration) * 100;
@@ -833,6 +857,7 @@
       const pct = parseFloat(e.target.value);
       if (video.duration) {
         video.currentTime = (pct / 100) * video.duration;
+        showLoader(true);
       }
     });
 
@@ -841,10 +866,12 @@
     
     btnRewind.addEventListener('click', () => {
       video.currentTime = Math.max(0, video.currentTime - 10);
+      if (!video.paused) showLoader(true);
     });
     
     btnForward.addEventListener('click', () => {
       video.currentTime = Math.min(video.duration || 0, video.currentTime + 10);
+      if (!video.paused) showLoader(true);
     });
 
     btnMute.addEventListener('click', () => {
@@ -903,7 +930,10 @@
         case 'play': safePlay(); break;
         case 'pause': video.pause(); break;
         case 'togglePlay': togglePlay(); break;
-        case 'seek': if (data.time !== undefined) video.currentTime = data.time; break;
+        case 'seek': if (data.time !== undefined) {
+          video.currentTime = data.time;
+          if (!video.paused) showLoader(true);
+        } break;
         case 'setVolume':
           if (data.level !== undefined) {
             const v = Math.max(0, Math.min(1, data.level));
@@ -930,6 +960,7 @@
           embedFrame.src = '';
           showLoader(false);
           if (loadTimeout) clearTimeout(loadTimeout);
+          if (waitingTimeout) clearTimeout(waitingTimeout);
           break;
         case 'setDebug':
           setDebugMode(data.enabled === true);
