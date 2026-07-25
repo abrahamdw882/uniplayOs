@@ -104,4 +104,4 @@ CF_WORKER_URL=https://uniplay-proxy.your-subdomain.workers.dev
 
 Without this variable set, the app proxies directly as normal — this is purely an optional egress layer.
 
-Deploy steps and details live in the `UniplayOsproxy` repo README.
+Deploy steps and details live in the [UniplayOsproxy](https://github.com/unitedevz/UniplayOsproxy) repo README.
