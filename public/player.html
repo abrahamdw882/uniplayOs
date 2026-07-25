@@ -78,6 +78,20 @@
       object-fit: contain;
     }
 
+    #thumbnail {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: none;
+      z-index: 1;
+    }
+
+    #thumbnail.visible { display: block; }
+
+    #stage.paused #overlay { z-index: 2; }
+
     #loader {
       position: absolute;
       inset: 0;
@@ -540,6 +554,7 @@
 <div id="wrapper">
   <div id="stage" class="paused">
     <video id="video" playsinline></video>
+    <img id="thumbnail" alt="">
     <iframe id="embed-frame" allowfullscreen allow="autoplay"></iframe>
 
     <div id="loader">
@@ -591,7 +606,8 @@
   (function() {
     const video = document.getElementById('video');
     const stage = document.getElementById('stage');
-    const embedFrame = document.getElementById('embed-frame');
+    const embedFrame  = document.getElementById('embed-frame');
+    const thumbnail   = document.getElementById('thumbnail');
     const btnPlay = document.getElementById('btn-play');
     const btnRewind = document.getElementById('btn-rewind');
     const btnForward = document.getElementById('btn-forward');
@@ -658,6 +674,16 @@
       embedFrame.style.display = 'block';
     }
 
+    function setThumbnail(url) {
+      if (!url) { thumbnail.classList.remove('visible'); thumbnail.src = ''; return; }
+      thumbnail.src = url;
+      thumbnail.classList.add('visible');
+    }
+
+    function clearThumbnail() {
+      thumbnail.classList.remove('visible');
+    }
+
     function safePlay() {
       const p = video.play();
       if (p !== undefined) p.catch(() => {});
@@ -680,6 +706,9 @@
       destroyInstances();
       isReadySent = false;
       showLoader(true);
+
+      const thumb = Utils.getThumbnail(rawUrl);
+      setThumbnail(thumb);
 
       if (loadTimeout) clearTimeout(loadTimeout);
       loadTimeout = setTimeout(() => {
@@ -792,6 +821,7 @@
       setIcon(btnPlay, 'pause');
       setIcon(playBig, 'pause');
       sendEmbedEvent('play');
+      clearThumbnail();
     });
     video.addEventListener('pause', () => {
       stage.classList.add('paused');
