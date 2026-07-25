@@ -1,6 +1,12 @@
 # uniplayOs
 
+<img src="./public/assets/logo-wordmark.svg" alt="UniplayOS" width="220">
+
 Universal media player engine. Handles video, audio, HLS, DASH, and embeds through a unified resolver and proxy layer.
+
+**Live:** [uniplayos.web.id](https://www.uniplayos.web.id)
+**Player:** [uniplayos.web.id/player.html](https://www.uniplayos.web.id/player.html)
+**Embed:** `https://www.uniplayos.web.id/embed.js`
 
 ## Project Structure
 
@@ -11,6 +17,8 @@ uniplayos/
 ├── embed.js
 ├── package.json
 ├── .gitignore
+├── .env.example
+├── vercel.json
 ├── README.md
 └── public/
     ├── index.html
@@ -26,6 +34,8 @@ uniplayos/
             ├── api.js
             ├── resolver.js
             └── download.js
+                └── assets/
+                    └──logo-wordmark.svg
 ```
 
 ## Requirements
@@ -60,7 +70,7 @@ Paste any media URL into the input and hit Load. The panel shows:
 - Direct video files (mp4, webm, etc.)
 - HLS streams (.m3u8)
 - DASH streams (.mpd)
-- YouTube and Vimeo (embedded via iframe)
+- YouTube and Vimeo (embedded via iframe, with thumbnail preview for YouTube)
 
 ### What doesn't
 
@@ -81,3 +91,17 @@ Drop this into any page to embed the player:
 ```html
 <script src="http://localhost:3000/embed.js"></script>
 ```
+
+## Cloudflare Worker proxy (optional)
+
+Some target sites block requests based on IP range. To bypass that, requests can be routed through a Cloudflare Worker that acts as an egress proxy — separate repo, `UniplayOsproxy`.
+
+Set `CF_WORKER_URL` in `.env` (see `.env.example`) once deployed:
+
+```
+CF_WORKER_URL=https://uniplay-proxy.your-subdomain.workers.dev
+```
+
+Without this variable set, the app proxies directly as normal — this is purely an optional egress layer.
+
+Deploy steps and details live in the `UniplayOsproxy` repo README.
