@@ -89,6 +89,17 @@ class Utils {
   static isVimeo(url) {
     return url.includes('vimeo.com');
   }
+
+  static getThumbnail(url) {
+    if (this.isYouTube(url)) {
+      const match = url.match(/(?:v=|youtu\.be\/|shorts\/)([a-zA-Z0-9_-]{11})/);
+      if (match) {
+        const id = match[1];
+        return `https://img.youtube.com/vi/${id}/maxresdefault.jpg`;
+      }
+    }
+    return null;
+  }
   
   static isHLS(url) {
     return url.includes('.m3u8') || url.includes('m3u8');
