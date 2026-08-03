@@ -106,6 +106,8 @@ Without this variable set, the app proxies directly as normal — this is purely
 
 Deploy steps and details live in the [UniplayOsproxy](https://github.com/unitedevz/UniplayOsproxy) repo README.
 
+## Embed Testing
+
 ```
 <!DOCTYPE html>
 <html lang="en">
