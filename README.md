@@ -105,3 +105,51 @@ CF_WORKER_URL=https://uniplay-proxy.your-subdomain.workers.dev
 Without this variable set, the app proxies directly as normal — this is purely an optional egress layer.
 
 Deploy steps and details live in the [UniplayOsproxy](https://github.com/unitedevz/UniplayOsproxy) repo README.
+
+```
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UniplayOS Test</title>
+</head>
+<body>
+
+  <h2>UniplayOS Embed Test</h2>
+
+  <div id="player" style="width:800px;height:450px;"></div>
+
+  <script type="module">
+    import UniplayOS from "https://www.uniplayos.web.id/embed.js";
+
+    UniplayOS.prototype.baseUrl = "https://www.uniplayos.web.id";
+
+    const player = new UniplayOS({
+      container: "#player",
+      source: "https://eliteprotech-url.zone.id/1783881711744rbbva1.mp4",
+      debug: true,
+
+      onReady() {
+        console.log("Player Ready");
+      },
+
+      onPlay() {
+        console.log("Playing");
+      },
+
+      onPause() {
+        console.log("Paused");
+      },
+
+      onError(error) {
+        console.log(error);
+      }
+    });
+
+    window.player = player;
+  </script>
+
+</body>
+</html>
+```
