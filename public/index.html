@@ -3,82 +3,365 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>UniplayOS</title>
+  <title>UniplayOS — Universal Media Player Engine</title>
+  <meta name="description" content="UniplayOS is a universal media player engine for video, audio, HLS and DASH streams with a unified resolver and proxy layer.">
+  <meta name="keywords" content="uniplayos, media player, hls player, dash player, video embed, universal player engine">
+  <meta name="author" content="UniplayOS">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://www.uniplayos.web.id/">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="UniplayOS — Universal Media Player Engine">
+  <meta property="og:description" content="Handles video, audio, HLS, DASH and embeds through a unified resolver and proxy layer.">
+  <meta property="og:url" content="https://www.uniplayos.web.id/">
+  <meta property="og:image" content="https://www.uniplayos.web.id/assets/logo-wordmark.svg">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="UniplayOS — Universal Media Player Engine">
+  <meta name="twitter:description" content="Handles video, audio, HLS, DASH and embeds through a unified resolver and proxy layer.">
+  <link rel="icon" type="image/svg+xml" href="/assets/logo-wordmark.svg">
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "UniplayOS",
+    "applicationCategory": "MultimediaApplication",
+    "operatingSystem": "Web",
+    "description": "Universal media player engine handling video, audio, HLS, DASH and embeds through a unified resolver and proxy layer.",
+    "url": "https://www.uniplayos.web.id/"
+  }
+  </script>
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
     :root {
       --bg: #0a0a0a;
       --surface: #111111;
+      --surface-raised: #161616;
       --border: #1f1f1f;
       --text: #e8e8e8;
-      --muted: #555;
+      --muted: #777;
       --accent: #c8ff00;
+      --accent-dim: rgba(200, 255, 0, 0.12);
+      --ease: cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    html {
+      scroll-behavior: smooth;
     }
 
     body {
       background: var(--bg);
+      background-image:
+        radial-gradient(circle at 15% 20%, rgba(200, 255, 0, 0.05), transparent 40%),
+        radial-gradient(circle at 85% 80%, rgba(200, 255, 0, 0.04), transparent 40%);
       color: var(--text);
       font-family: 'Courier New', Courier, monospace;
       min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .noise {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.03;
+      z-index: 1;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+
+    main {
+      position: relative;
+      z-index: 2;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 2rem;
+      min-height: 100vh;
+      padding: 3rem 1.5rem;
+      text-align: center;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.4rem 0.9rem;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      opacity: 0;
+      animation: rise 0.7s var(--ease) 0.05s forwards;
+    }
+
+    .badge .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+      animation: pulse 2s ease-in-out infinite;
     }
 
     .wordmark {
-      font-size: clamp(2.5rem, 8vw, 5rem);
+      margin-top: 1.5rem;
+      font-size: clamp(2.6rem, 9vw, 5.5rem);
       font-weight: 700;
       letter-spacing: -0.03em;
       line-height: 1;
+      opacity: 0;
+      animation: rise 0.8s var(--ease) 0.15s forwards;
     }
 
     .wordmark span {
       color: var(--accent);
+      position: relative;
+    }
+
+    .wordmark span::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0.08em;
+      height: 0.1em;
+      background: var(--accent);
+      opacity: 0.15;
+      transform: scaleX(0);
+      transform-origin: left;
+      animation: underline 0.8s var(--ease) 0.9s forwards;
     }
 
     .tagline {
-      margin-top: 1rem;
+      margin-top: 1.1rem;
       color: var(--muted);
-      font-size: 0.85rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
+      font-size: 0.9rem;
+      letter-spacing: 0.06em;
+      max-width: 32rem;
+      line-height: 1.6;
+      opacity: 0;
+      animation: rise 0.8s var(--ease) 0.3s forwards;
     }
 
-    .cta {
-      margin-top: 3rem;
-      display: inline-block;
-      padding: 0.75rem 2rem;
-      border: 1px solid var(--accent);
-      color: var(--accent);
+    .actions {
+      margin-top: 2.6rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.9rem;
+      justify-content: center;
+      opacity: 0;
+      animation: rise 0.8s var(--ease) 0.45s forwards;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.55rem;
+      padding: 0.85rem 1.8rem;
+      border-radius: 8px;
       text-decoration: none;
       font-family: inherit;
       font-size: 0.85rem;
-      letter-spacing: 0.1em;
+      letter-spacing: 0.06em;
       text-transform: uppercase;
-      transition: background 0.15s, color 0.15s;
+      transition: transform 0.25s var(--ease), box-shadow 0.25s var(--ease), background 0.25s var(--ease), color 0.25s var(--ease);
     }
 
-    .cta:hover {
+    .btn-primary {
       background: var(--accent);
-      color: var(--bg);
+      color: #0a0a0a;
+      border: 1px solid var(--accent);
     }
 
-    .cta:focus-visible {
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px -10px var(--accent-dim), 0 0 0 1px var(--accent);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-ghost:hover {
+      transform: translateY(-2px);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .btn:focus-visible {
       outline: 2px solid var(--accent);
-      outline-offset: 4px;
+      outline-offset: 3px;
+    }
+
+    .btn i {
+      transition: transform 0.25s var(--ease);
+    }
+
+    .btn-primary:hover i {
+      transform: translateX(3px);
+    }
+
+    .features {
+      margin-top: 4.5rem;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      max-width: 56rem;
+      width: 100%;
+      opacity: 0;
+      animation: rise 0.8s var(--ease) 0.6s forwards;
+    }
+
+    .feature {
+      background: var(--surface);
+      padding: 1.6rem 1.2rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.7rem;
+      transition: background 0.25s var(--ease);
+    }
+
+    .feature:hover {
+      background: var(--surface-raised);
+    }
+
+    .feature i {
+      font-size: 1.3rem;
+      color: var(--accent);
+      transition: transform 0.3s var(--ease);
+    }
+
+    .feature:hover i {
+      transform: scale(1.15) rotate(-4deg);
+    }
+
+    .feature span {
+      font-size: 0.75rem;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+    }
+
+    footer {
+      position: relative;
+      z-index: 2;
+      text-align: center;
+      padding: 1.5rem;
+      color: var(--muted);
+      font-size: 0.72rem;
+      letter-spacing: 0.05em;
+    }
+
+    footer a {
+      color: var(--muted);
+      transition: color 0.2s;
+    }
+
+    footer a:hover {
+      color: var(--accent);
+    }
+
+    @keyframes rise {
+      from {
+        opacity: 0;
+        transform: translateY(14px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes underline {
+      to { transform: scaleX(1); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.75); }
+    }
+
+    @media (max-width: 768px) {
+      .features {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 420px) {
+      .actions {
+        flex-direction: column;
+        width: 100%;
+      }
+      .btn {
+        justify-content: center;
+        width: 100%;
+      }
     }
 
     @media (prefers-reduced-motion: reduce) {
-      .cta { transition: none; }
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+      .badge, .wordmark, .tagline, .actions, .features {
+        opacity: 1;
+      }
     }
   </style>
 </head>
 <body>
-  <h1 class="wordmark">Uniplay<span>OS</span></h1>
-  <p class="tagline">Universal media player engine</p>
-  <a class="cta" href="/player.html">Launch Player</a>
+  <div class="noise" aria-hidden="true"></div>
+  <main>
+    <p class="badge"><span class="dot"></span>Video · Audio · HLS · DASH</p>
+    <h1 class="wordmark">Uniplay<span>OS</span></h1>
+    <p class="tagline">A universal media player engine. One resolver and proxy layer for video, audio, live streams and embeds, wherever they come from.</p>
+    <nav class="actions" aria-label="Primary">
+      <a class="btn btn-primary" href="/player.html">
+        <i class="fa-solid fa-play"></i>
+        Launch Player
+      </a>
+      <a class="btn btn-ghost" href="/test.html">
+        <i class="fa-solid fa-flask"></i>
+        Try the Resolver
+      </a>
+    </nav>
+    <section class="features" aria-label="Capabilities">
+      <div class="feature">
+        <i class="fa-solid fa-file-video" aria-hidden="true"></i>
+        <span>MP4 / WebM</span>
+      </div>
+      <div class="feature">
+        <i class="fa-solid fa-tower-broadcast" aria-hidden="true"></i>
+        <span>HLS Streams</span>
+      </div>
+      <div class="feature">
+        <i class="fa-solid fa-diagram-project" aria-hidden="true"></i>
+        <span>DASH Streams</span>
+      </div>
+      <div class="feature">
+        <i class="fa-solid fa-code" aria-hidden="true"></i>
+        <span>Embeddable</span>
+      </div>
+    </section>
+  </main>
+  <footer>
+    <a href="https://github.com/unitedevz/uniplayOs" target="_blank" rel="noopener noreferrer">Source on GitHub</a>
+  </footer>
 </body>
 </html>
