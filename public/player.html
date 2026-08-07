@@ -10,6 +10,7 @@
       margin: 0;
       padding: 0;
       box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
     }
 
     :root {
@@ -19,7 +20,10 @@
       --text: #e8e8e8;
       --muted: #777;
       --accent: #c8ff00;
+      --accent-glow: rgba(200, 255, 0, 0.35);
       --ctrl-h: 48px;
+      --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+      --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
     }
 
     html, body {
@@ -35,6 +39,7 @@
       align-items: center;
       justify-content: center;
       padding: 0.5rem;
+      padding: max(0.5rem, env(safe-area-inset-top)) max(0.5rem, env(safe-area-inset-right)) max(0.5rem, env(safe-area-inset-bottom)) max(0.5rem, env(safe-area-inset-left));
     }
 
     #wrapper {
@@ -45,9 +50,16 @@
       background: var(--bg);
       border-radius: 12px;
       overflow: hidden;
-      box-shadow: 0 20px 40px rgba(0,0,0,0.8);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.8), 0 0 0 1px var(--border);
       display: flex;
       flex-direction: column;
+      opacity: 0;
+      transform: translateY(10px) scale(0.99);
+      animation: wrapper-enter 0.55s var(--ease-out) forwards;
+    }
+
+    @keyframes wrapper-enter {
+      to { opacity: 1; transform: translateY(0) scale(1); }
     }
 
     #stage {
@@ -60,6 +72,7 @@
       align-items: center;
       justify-content: center;
       aspect-ratio: 16 / 9;
+      cursor: default;
     }
 
     #stage video {
@@ -86,6 +99,13 @@
       object-fit: cover;
       display: none;
       z-index: 1;
+      filter: brightness(0.75);
+      animation: thumb-in 0.5s var(--ease-out);
+    }
+
+    @keyframes thumb-in {
+      from { opacity: 0; filter: brightness(0.75) blur(6px); }
+      to { opacity: 1; filter: brightness(0.75) blur(0); }
     }
 
     #thumbnail.visible { display: block; }
@@ -98,13 +118,16 @@
       display: none;
       align-items: center;
       justify-content: center;
-      background: rgba(0, 0, 0, 0.6);
-      backdrop-filter: blur(2px);
+      background: rgba(0, 0, 0, 0.55);
+      backdrop-filter: blur(3px);
       z-index: 20;
       pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.25s var(--ease-out);
     }
     #loader.active {
       display: flex;
+      opacity: 1;
     }
 
     .uniplayos-spinner {
@@ -114,6 +137,12 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      animation: spinner-breathe 2.4s ease-in-out infinite;
+    }
+
+    @keyframes spinner-breathe {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.06); }
     }
 
     .uniplayos-spinner .ring {
@@ -124,6 +153,7 @@
       border-bottom-color: var(--accent);
       animation: spin 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
       will-change: transform;
+      filter: drop-shadow(0 0 6px var(--accent-glow));
     }
 
     .uniplayos-spinner .ring:nth-child(1) {
@@ -136,9 +166,11 @@
       width: 44px;
       height: 44px;
       animation-duration: 0.9s;
+      animation-direction: reverse;
       border-width: 3px;
       border-top-color: #fff;
       border-bottom-color: #fff;
+      filter: none;
     }
     .uniplayos-spinner .ring:nth-child(3) {
       width: 24px;
@@ -165,6 +197,7 @@
     }
 
     #play-big {
+      position: relative;
       width: 70px;
       height: 70px;
       border: 2px solid var(--accent);
@@ -179,13 +212,46 @@
       pointer-events: all;
       border-radius: 50%;
       opacity: 0;
-      transition: opacity 0.2s, transform 0.2s;
-      transform: scale(0.9);
+      transition: opacity 0.25s var(--ease-out), transform 0.3s var(--ease-spring), box-shadow 0.25s var(--ease-out), background 0.2s;
+      transform: scale(0.8);
+    }
+
+    #play-big::before {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      border-radius: 50%;
+      border: 1px solid var(--accent);
+      opacity: 0;
     }
 
     #stage.paused #play-big {
       opacity: 1;
       transform: scale(1);
+    }
+
+    #stage.paused #play-big::before {
+      animation: ring-pulse 2.2s ease-out infinite;
+    }
+
+    @keyframes ring-pulse {
+      0% { opacity: 0.55; transform: scale(1); }
+      100% { opacity: 0; transform: scale(1.5); }
+    }
+
+    #play-big:hover {
+      background: var(--accent);
+      color: var(--bg);
+      box-shadow: 0 0 30px var(--accent-glow);
+      transform: scale(1.08);
+    }
+
+    #play-big:active {
+      transform: scale(0.95);
+    }
+
+    #play-big i {
+      transition: transform 0.2s var(--ease-spring);
     }
 
     #controls {
@@ -196,6 +262,7 @@
       flex-direction: column;
       gap: 0.4rem;
       flex-shrink: 0;
+      transition: opacity 0.3s var(--ease-out), transform 0.3s var(--ease-out);
     }
 
     #progress-wrap {
@@ -204,13 +271,13 @@
       background: var(--border);
       cursor: pointer;
       border-radius: 4px;
-      transition: height 0.1s;
+      transition: height 0.15s var(--ease-out);
       display: flex;
       align-items: center;
     }
 
     #progress-wrap:hover {
-      height: 7px;
+      height: 8px;
     }
 
     #progress-wrap input[type="range"] {
@@ -236,13 +303,13 @@
       border-radius: 50%;
       background: var(--accent);
       cursor: pointer;
-      box-shadow: 0 0 10px rgba(200, 255, 0, 0.3);
-      transition: transform 0.15s;
+      box-shadow: 0 0 10px var(--accent-glow);
+      transition: transform 0.18s var(--ease-spring);
       margin-top: -4.5px;
     }
 
-    #progress-wrap input[type="range"]::-webkit-slider-thumb:hover {
-      transform: scale(1.2);
+    #progress-wrap:hover input[type="range"]::-webkit-slider-thumb {
+      transform: scale(1.3);
     }
 
     #progress-wrap input[type="range"]::-moz-range-thumb {
@@ -252,11 +319,12 @@
       background: var(--accent);
       cursor: pointer;
       border: none;
-      box-shadow: 0 0 10px rgba(200, 255, 0, 0.3);
+      box-shadow: 0 0 10px var(--accent-glow);
+      transition: transform 0.18s var(--ease-spring);
     }
 
-    #progress-wrap input[type="range"]::-moz-range-thumb:hover {
-      transform: scale(1.2);
+    #progress-wrap:hover input[type="range"]::-moz-range-thumb {
+      transform: scale(1.3);
     }
 
     #progress-wrap input[type="range"]::-webkit-slider-runnable-track {
@@ -283,6 +351,8 @@
       pointer-events: none;
       border-radius: 4px;
       z-index: 1;
+      box-shadow: 0 0 8px var(--accent-glow);
+      transition: box-shadow 0.2s var(--ease-out);
     }
 
     #ctrl-row {
@@ -295,22 +365,51 @@
     }
 
     button {
+      position: relative;
       background: none;
       border: none;
       color: var(--text);
       cursor: pointer;
       font-family: inherit;
       font-size: 1rem;
-      padding: 0.25rem 0.4rem;
+      padding: 0.35rem 0.5rem;
       letter-spacing: 0.03em;
-      transition: color 0.15s;
+      transition: color 0.18s var(--ease-out), transform 0.18s var(--ease-spring);
       display: flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
+      border-radius: 6px;
     }
-    button:hover { color: var(--accent); }
-    button:focus-visible { outline: 1px solid var(--accent); }
+    button:hover {
+      color: var(--accent);
+      transform: translateY(-1px);
+    }
+    button:active {
+      transform: translateY(0) scale(0.9);
+    }
+    button:focus-visible {
+      outline: 1px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    #btn-play i, #play-big i {
+      transition: transform 0.28s var(--ease-spring);
+    }
+
+    #btn-rewind:active i {
+      animation: nudge-left 0.3s var(--ease-out);
+    }
+    #btn-forward:active i {
+      animation: nudge-right 0.3s var(--ease-out);
+    }
+
+    @keyframes nudge-left {
+      50% { transform: translateX(-3px); }
+    }
+    @keyframes nudge-right {
+      50% { transform: translateX(3px); }
+    }
 
     #time {
       font-size: 0.8rem;
@@ -334,6 +433,7 @@
       height: 4px;
       cursor: pointer;
       flex-shrink: 0;
+      transition: width 0.25s var(--ease-out);
     }
 
     #debug-bar {
@@ -348,6 +448,12 @@
 
     #debug-bar.visible {
       display: flex;
+      animation: bar-drop 0.3s var(--ease-out);
+    }
+
+    @keyframes bar-drop {
+      from { opacity: 0; transform: translateY(-6px); }
+      to { opacity: 1; transform: translateY(0); }
     }
 
     #debug-bar input {
@@ -361,10 +467,12 @@
       outline: none;
       border-radius: 6px;
       min-width: 150px;
+      transition: border-color 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out);
     }
 
     #debug-bar input:focus {
       border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
     }
 
     #debug-bar button {
@@ -376,13 +484,18 @@
       border-radius: 6px;
       background: transparent;
       cursor: pointer;
-      transition: 0.15s;
+      transition: background 0.2s var(--ease-out), color 0.2s var(--ease-out), transform 0.18s var(--ease-spring);
       font-family: inherit;
     }
 
     #debug-bar button:hover {
       background: var(--accent);
       color: var(--bg);
+      transform: translateY(-1px);
+    }
+
+    #debug-bar button:active {
+      transform: translateY(0) scale(0.96);
     }
 
     #status {
@@ -399,6 +512,7 @@
 
     #status.visible {
       display: block;
+      animation: bar-drop 0.25s var(--ease-out);
     }
 
     #stage.fullscreen {
@@ -433,6 +547,17 @@
       backdrop-filter: blur(8px);
       border-top: 1px solid rgba(255,255,255,0.1);
       width: 100%;
+      padding-bottom: max(0.6rem, env(safe-area-inset-bottom));
+    }
+
+    #stage.fullscreen.idle #controls {
+      opacity: 0;
+      transform: translateY(100%);
+      pointer-events: none;
+    }
+
+    #stage.fullscreen.idle {
+      cursor: none;
     }
 
     #stage.fullscreen #ctrl-row {
@@ -444,6 +569,24 @@
     #stage.fullscreen #debug-bar,
     #stage.fullscreen #status {
       display: none !important;
+    }
+
+    @media (hover: none) and (pointer: coarse) {
+      button {
+        padding: 0.5rem 0.65rem;
+      }
+      #progress-wrap {
+        height: 8px;
+      }
+      #progress-wrap input[type="range"]::-webkit-slider-thumb {
+        width: 18px;
+        height: 18px;
+        margin-top: -5px;
+      }
+      #progress-wrap input[type="range"]::-moz-range-thumb {
+        width: 18px;
+        height: 18px;
+      }
     }
 
     @media (min-width: 1024px) {
@@ -461,7 +604,7 @@
       }
       button {
         font-size: 1.1rem;
-        padding: 0.3rem 0.6rem;
+        padding: 0.35rem 0.65rem;
       }
       #time {
         font-size: 0.9rem;
@@ -492,15 +635,15 @@
       #ctrl-row { gap: 0.3rem; }
       #vol { width: 45px; }
       #time { font-size: 0.7rem; min-width: 75px; }
-      #play-big { width: 56px; height: 56px; font-size: 1.4rem; }
+      #play-big { width: 60px; height: 60px; font-size: 1.5rem; }
       #progress-wrap input[type="range"]::-webkit-slider-thumb {
-        width: 16px;
-        height: 16px;
-        margin-top: -5.5px;
+        width: 18px;
+        height: 18px;
+        margin-top: -6.5px;
       }
       #progress-wrap input[type="range"]::-moz-range-thumb {
-        width: 16px;
-        height: 16px;
+        width: 18px;
+        height: 18px;
       }
       #debug-bar {
         padding: 0.4rem 0.5rem 0.6rem;
@@ -516,17 +659,16 @@
     }
 
     @media (max-width: 480px) {
-      #progress-wrap input[type="range"]::-webkit-slider-thumb {
-        width: 14px;
-        height: 14px;
-        margin-top: -4.5px;
-      }
-      #progress-wrap input[type="range"]::-moz-range-thumb {
-        width: 14px;
-        height: 14px;
-      }
+      #time { min-width: 64px; font-size: 0.65rem; }
+      #vol { width: 36px; }
+      #ctrl-row { gap: 0.2rem; }
+      button { padding: 0.3rem 0.35rem; }
     }
-    
+
+    @media (max-width: 360px) {
+      #vol { display: none; }
+    }
+
     @media (orientation: landscape) and (max-height: 500px) {
       #stage.fullscreen #ctrl-row {
         gap: 0.2rem;
@@ -545,7 +687,15 @@
     }
 
     @media (prefers-reduced-motion: reduce) {
-      * { transition: none !important; }
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+      #wrapper {
+        opacity: 1;
+        transform: none;
+      }
     }
   </style>
 </head>
@@ -701,7 +851,7 @@
       return url;
     }
 
-    function loadUrl(rawUrl, autoplay = false) {
+    async function loadUrl(rawUrl, autoplay = false) {
       if (!rawUrl) return;
       destroyInstances();
       isReadySent = false;
@@ -719,8 +869,14 @@
 
       try {
         const resolver = new Resolver();
-        const result = resolver.resolve(rawUrl);
-        const src = result.proxyRequired ? resolver.getProxyUrl(rawUrl) : rawUrl;
+        const type = resolver.detectType(rawUrl);
+
+        if (type === 'unknown' && isDebugMode) setStatus('Resolving source…');
+
+        const result = await resolver.resolveAsync(rawUrl);
+        const src = result.proxyRequired ? resolver.getProxyUrl(result.source) : result.source;
+
+        if (result.thumbnail) setThumbnail(result.thumbnail);
 
         if (isDebugMode) setStatus('Loading…');
 
@@ -788,7 +944,8 @@
       } catch (err) {
         showLoader(false);
         if (loadTimeout) clearTimeout(loadTimeout);
-        if (isDebugMode) setStatus('Invalid URL');
+        if (isDebugMode) setStatus(err.message || 'Could not load that link');
+        sendEmbedEvent('error', { message: err.message || 'Could not load that link' });
         console.error('Resolver error:', err);
       }
     }
@@ -923,11 +1080,30 @@
 
     document.addEventListener('fullscreenchange', () => {
       if (!document.fullscreenElement) {
-        stage.classList.remove('fullscreen');
+        stage.classList.remove('fullscreen', 'idle');
         updateAspectRatio();
       } else {
         stage.classList.add('fullscreen');
       }
+    });
+
+    let idleTimer = null;
+
+    function wakeControls() {
+      stage.classList.remove('idle');
+      if (idleTimer) clearTimeout(idleTimer);
+      if (!stage.classList.contains('fullscreen') || video.paused) return;
+      idleTimer = setTimeout(() => stage.classList.add('idle'), 2600);
+    }
+
+    ['mousemove', 'touchstart', 'click', 'keydown'].forEach((evt) => {
+      stage.addEventListener(evt, wakeControls);
+    });
+
+    video.addEventListener('play', wakeControls);
+    video.addEventListener('pause', () => {
+      stage.classList.remove('idle');
+      if (idleTimer) clearTimeout(idleTimer);
     });
 
     urlLoad.addEventListener('click', () => loadUrl(urlInput.value.trim()));
