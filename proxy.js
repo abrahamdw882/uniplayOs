@@ -3,14 +3,52 @@ import { Readable } from 'stream';
 
 const TIMEOUT_MS = 15000;
 const CF_WORKER_URL = process.env.CF_WORKER_URL || null;
+const MANIFEST_CACHE_TTL_MS = 4000;
+const MANIFEST_CACHE_MAX_ENTRIES = 200;
+const SEGMENT_RETRY_COUNT = 1;
+const SEGMENT_RETRY_DELAY_MS = 300;
 
-function isM3U8(url, contentType) {
-  return url.toLowerCase().split('?')[0].endsWith('.m3u8') ||
-    contentType.includes('application/vnd.apple.mpegurl') ||
-    contentType.includes('application/x-mpegurl');
+const manifestCache = new Map();
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function rewriteManifest(manifest, manifestUrl, proxyBase) {
+async function fetchWithRetry(fetchUrl, options, retries) {
+  let lastError;
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch(fetchUrl, options);
+      if (response.status >= 500 && attempt < retries) {
+        await sleep(SEGMENT_RETRY_DELAY_MS);
+        continue;
+      }
+      return response;
+    } catch (error) {
+      lastError = error;
+      if (error.name === 'AbortError' || attempt === retries) throw error;
+      await sleep(SEGMENT_RETRY_DELAY_MS);
+    }
+  }
+
+  throw lastError;
+}
+
+function manifestType(url, contentType) {
+  const path = url.toLowerCase().split('?')[0];
+  if (path.endsWith('.m3u8') ||
+    contentType.includes('application/vnd.apple.mpegurl') ||
+    contentType.includes('application/x-mpegurl')) {
+    return 'hls';
+  }
+  if (path.endsWith('.mpd') || contentType.includes('application/dash+xml')) {
+    return 'dash';
+  }
+  return null;
+}
+
+function rewriteHlsManifest(manifest, manifestUrl, proxyBase) {
   const toProxied = (raw) => {
     try {
       const absolute = new URL(raw, manifestUrl).href;
@@ -38,6 +76,59 @@ function rewriteManifest(manifest, manifestUrl, proxyBase) {
     .join('\n');
 }
 
+function rewriteDashManifest(manifest, manifestUrl, proxyBase) {
+  const toProxied = (raw) => {
+    try {
+      const absolute = new URL(raw, manifestUrl).href;
+      return `${proxyBase}?url=${encodeURIComponent(absolute)}`;
+    } catch {
+      return raw;
+    }
+  };
+
+  let rewritten = manifest.replace(
+    /<BaseURL>([^<]+)<\/BaseURL>/g,
+    (_match, url) => `<BaseURL>${toProxied(url.trim())}</BaseURL>`
+  );
+
+  rewritten = rewritten.replace(
+    /\b(media|initialization|sourceURL)="([^"]+)"/g,
+    (match, attr, url) => {
+      if (url.includes('$')) return match;
+      return `${attr}="${toProxied(url)}"`;
+    }
+  );
+
+  return rewritten;
+}
+
+function cacheKeyFor(url) {
+  return url;
+}
+
+function getCachedManifest(url) {
+  const entry = manifestCache.get(cacheKeyFor(url));
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    manifestCache.delete(cacheKeyFor(url));
+    return null;
+  }
+  return entry;
+}
+
+function setCachedManifest(url, body, contentType, status) {
+  if (manifestCache.size >= MANIFEST_CACHE_MAX_ENTRIES) {
+    const oldestKey = manifestCache.keys().next().value;
+    manifestCache.delete(oldestKey);
+  }
+  manifestCache.set(cacheKeyFor(url), {
+    body,
+    contentType,
+    status,
+    expiresAt: Date.now() + MANIFEST_CACHE_TTL_MS,
+  });
+}
+
 function applyHeaders(res, response) {
   res.setHeader('Access-Control-Allow-Origin', '*');
 
@@ -60,6 +151,15 @@ export const proxyMedia = async (req, res) => {
     return res.status(400).json({ error: 'missing url' });
   }
 
+  const cached = getCachedManifest(url);
+  if (cached) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Content-Type', cached.contentType);
+    res.setHeader('X-Proxy-Cache', 'HIT');
+    res.status(cached.status);
+    return res.send(cached.body);
+  }
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
@@ -80,7 +180,11 @@ export const proxyMedia = async (req, res) => {
       ? `${CF_WORKER_URL}?url=${encodeURIComponent(url)}`
       : url;
 
-    const response = await fetch(fetchUrl, { headers, redirect: 'follow', signal: controller.signal });
+    const response = await fetchWithRetry(
+      fetchUrl,
+      { headers, redirect: 'follow', signal: controller.signal },
+      SEGMENT_RETRY_COUNT
+    );
 
     clearTimeout(timeout);
 
@@ -90,13 +194,23 @@ export const proxyMedia = async (req, res) => {
       return res.status(422).json({ error: 'url returned html, not a media file' });
     }
 
-    if (isM3U8(url, contentType)) {
+    const type = manifestType(url, contentType);
+
+    if (type) {
       const manifest = await response.text();
       const proxyBase = `${req.protocol}://${req.get('host')}/proxy`;
-      const rewritten = rewriteManifest(manifest, url, proxyBase);
+      const rewritten = type === 'hls'
+        ? rewriteHlsManifest(manifest, url, proxyBase)
+        : rewriteDashManifest(manifest, url, proxyBase);
+      const outContentType = type === 'hls'
+        ? 'application/vnd.apple.mpegurl'
+        : 'application/dash+xml';
+
+      setCachedManifest(url, rewritten, outContentType, response.status);
 
       res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+      res.setHeader('Content-Type', outContentType);
+      res.setHeader('X-Proxy-Cache', 'MISS');
       res.status(response.status);
       return res.send(rewritten);
     }
