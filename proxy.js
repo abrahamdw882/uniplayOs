@@ -4,6 +4,40 @@ import { Readable } from 'stream';
 const TIMEOUT_MS = 15000;
 const CF_WORKER_URL = process.env.CF_WORKER_URL || null;
 
+function isM3U8(url, contentType) {
+  return url.toLowerCase().split('?')[0].endsWith('.m3u8') ||
+    contentType.includes('application/vnd.apple.mpegurl') ||
+    contentType.includes('application/x-mpegurl');
+}
+
+function rewriteManifest(manifest, manifestUrl, proxyBase) {
+  const toProxied = (raw) => {
+    try {
+      const absolute = new URL(raw, manifestUrl).href;
+      return `${proxyBase}?url=${encodeURIComponent(absolute)}`;
+    } catch {
+      return raw;
+    }
+  };
+
+  return manifest
+    .split('\n')
+    .map((line) => {
+      const trimmed = line.trim();
+
+      if (trimmed.startsWith('#EXT-X-KEY') || trimmed.startsWith('#EXT-X-MAP')) {
+        return line.replace(/URI="([^"]+)"/, (_match, uri) => `URI="${toProxied(uri)}"`);
+      }
+
+      if (!trimmed || trimmed.startsWith('#')) {
+        return line;
+      }
+
+      return toProxied(trimmed);
+    })
+    .join('\n');
+}
+
 function applyHeaders(res, response) {
   res.setHeader('Access-Control-Allow-Origin', '*');
 
@@ -54,6 +88,17 @@ export const proxyMedia = async (req, res) => {
 
     if (contentType.includes('text/html')) {
       return res.status(422).json({ error: 'url returned html, not a media file' });
+    }
+
+    if (isM3U8(url, contentType)) {
+      const manifest = await response.text();
+      const proxyBase = `${req.protocol}://${req.get('host')}/proxy`;
+      const rewritten = rewriteManifest(manifest, url, proxyBase);
+
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+      res.status(response.status);
+      return res.send(rewritten);
     }
 
     applyHeaders(res, response);
