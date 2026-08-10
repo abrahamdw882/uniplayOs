@@ -638,6 +638,13 @@ console.<span class="tok-fn">log</span>(result.fallbackChain);   <span class="to
           </tbody>
         </table>
         <div class="callout"><strong>Optional —</strong> set <code>CF_WORKER_URL</code> in <code>.env</code> to route proxy requests through a Cloudflare Worker first, for sources that block by IP range. See the <code>UniplayOsproxy</code> repo for the worker setup.</div>
+
+        <h3 class="sub">HLS &amp; DASH manifest rewriting</h3>
+        <p>When the proxied URL is an HLS playlist (<code>.m3u8</code>) or a DASH manifest (<code>.mpd</code>), the proxy doesn't just stream it through — it rewrites every segment, sub-playlist, encryption key, and <code>BaseURL</code> reference inside it to route back through <code>/proxy</code> too. Without this, a manifest could load fine while its individual segments still hit the original (possibly blocked) host directly.</p>
+        <div class="callout"><strong>Known limitation —</strong> DASH <code>SegmentTemplate</code> attributes using <code>$Number$</code>/<code>$Time$</code> placeholders are left untouched, since query-string proxying doesn't compose with path-relative template resolution. <code>BaseURL</code> and <code>SegmentList</code>-based DASH streams are fully covered; templated live DASH streams aren't yet.</div>
+
+        <h3 class="sub">Caching &amp; retries</h3>
+        <p>Rewritten manifests are cached in memory for a few seconds per source URL, so repeated requests for the same live manifest don't refetch upstream every time. Check the <code>X-Proxy-Cache</code> response header (<code>HIT</code> or <code>MISS</code>) to see whether a given response came from cache. Failed upstream requests (network errors or a <code>5xx</code> response) are retried once before the proxy gives up.</p>
       </section>
 
       <section class="doc-section" id="player">
