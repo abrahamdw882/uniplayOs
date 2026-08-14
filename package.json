@@ -4,6 +4,7 @@
   "description": "Universal media player engine with proxy and resolver layer",
   "main": "index.js",
   "type": "module",
+  "license": "MIT",
   "engines": {
     "node": ">=18"
   },
