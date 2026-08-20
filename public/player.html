@@ -73,14 +73,9 @@
     #stage #embed-frame {
       width: 100%;
       height: 100%;
-      display: none;
-    }
-
-    #stage #embed-frame iframe {
-      width: 100%;
-      height: 100%;
       border: none;
-      display: block;
+      display: none;
+      object-fit: contain;
     }
 
     #thumbnail {
@@ -341,12 +336,6 @@
       flex-shrink: 0;
     }
 
-    #btn-speed {
-      font-size: 0.78rem;
-      min-width: 2.6rem;
-      font-variant-numeric: tabular-nums;
-    }
-
     #debug-bar {
       display: none;
       padding: 0.5rem 0.75rem 0.75rem;
@@ -410,29 +399,6 @@
 
     #status.visible {
       display: block;
-    }
-
-    #resume-toast {
-      position: absolute;
-      bottom: 4.2rem;
-      left: 50%;
-      transform: translateX(-50%) translateY(8px);
-      background: var(--surface);
-      border: 1px solid var(--accent);
-      color: var(--fg, #fff);
-      font-size: 0.78rem;
-      padding: 0.4rem 0.9rem;
-      border-radius: 999px;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.25s ease, transform 0.25s ease;
-      white-space: nowrap;
-      z-index: 5;
-    }
-
-    #resume-toast.visible {
-      opacity: 1;
-      transform: translateX(-50%) translateY(0);
     }
 
     #stage.fullscreen {
@@ -589,7 +555,7 @@
   <div id="stage" class="paused">
     <video id="video" playsinline></video>
     <img id="thumbnail" alt="">
-    <div id="embed-frame"></div>
+    <iframe id="embed-frame" allowfullscreen allow="autoplay"></iframe>
 
     <div id="loader">
       <div class="uniplayos-spinner">
@@ -602,8 +568,6 @@
     <div id="overlay">
       <button id="play-big" aria-label="Play"><i class="fa-solid fa-play"></i></button>
     </div>
-
-    <div id="resume-toast"></div>
   </div>
 
   <div id="controls">
@@ -619,7 +583,6 @@
       
       <div class="spacer"></div>
       
-      <button id="btn-speed" aria-label="Playback speed">1x</button>
       <button id="btn-mute" aria-label="Mute"><i class="fa-solid fa-volume-high"></i></button>
       <input id="vol" type="range" min="0" max="1" step="0.02" value="1" aria-label="Volume">
       <button id="btn-fs" aria-label="Fullscreen"><i class="fa-solid fa-expand"></i></button>
@@ -635,12 +598,9 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.7/hls.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/dashjs/4.7.4/dash.all.min.js"></script>
-<script src="https://www.youtube.com/iframe_api"></script>
-<script src="https://player.vimeo.com/api/player.js"></script>
 <script src="/js/utils/utils.js"></script>
 <script src="/js/utils/resolver.js"></script>
 <script src="/js/utils/api.js"></script>
-<script src="/js/utils/storage.js"></script>
 
 <script>
   (function() {
@@ -654,7 +614,6 @@
     const playBig = document.getElementById('play-big');
     const btnMute = document.getElementById('btn-mute');
     const btnFs = document.getElementById('btn-fs');
-    const btnSpeed = document.getElementById('btn-speed');
     const progress = document.getElementById('progress-fill');
     const progWrap = document.getElementById('progress-wrap');
     const seekSlider = document.getElementById('seek-slider');
@@ -668,94 +627,11 @@
 
     let hlsInstance = null;
     let dashInstance = null;
-    let ytPlayer = null;
-    let vimeoPlayer = null;
-    let playbackMode = 'native';
-    let knownDuration = 0;
-    let embedPollTimer = null;
-    const PLAYBACK_SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
-    let currentSpeed = 1;
     let isReadySent = false;
     let isSeeking = false;
     let isDebugMode = false;
     let loadTimeout = null;
     let waitingTimeout = null;
-
-    const HISTORY_KEY = 'history';
-    const HISTORY_MAX_ENTRIES = 50;
-    const RESUME_MIN_POSITION = 5;
-    const RESUME_END_BUFFER = 15;
-    const HISTORY_SAVE_INTERVAL_MS = 5000;
-
-    const resumeToast = document.getElementById('resume-toast');
-    let currentSourceUrl = null;
-    let lastHistorySaveAt = 0;
-    let resumeToastTimer = null;
-
-    let ytApiReady = typeof window.YT !== 'undefined' && !!window.YT.Player;
-    let ytApiReadyResolvers = [];
-    window.onYouTubeIframeAPIReady = function() {
-      ytApiReady = true;
-      ytApiReadyResolvers.forEach((resolve) => resolve());
-      ytApiReadyResolvers = [];
-    };
-    function whenYouTubeApiReady() {
-      return new Promise((resolve) => {
-        if (ytApiReady) return resolve();
-        ytApiReadyResolvers.push(resolve);
-      });
-    }
-
-    function getHistory() {
-      return Storage.get(HISTORY_KEY, []);
-    }
-
-    function getHistoryEntry(url) {
-      return getHistory().find((entry) => entry.url === url) || null;
-    }
-
-    function saveHistoryEntry(url, position, duration) {
-      if (!url || !duration || !isFinite(duration)) return;
-      const list = getHistory().filter((entry) => entry.url !== url);
-      list.unshift({ url, position, duration, updatedAt: Date.now() });
-      Storage.set(HISTORY_KEY, list.slice(0, HISTORY_MAX_ENTRIES));
-    }
-
-    function removeHistoryEntry(url) {
-      Storage.set(HISTORY_KEY, getHistory().filter((entry) => entry.url !== url));
-    }
-
-    function showResumeToast(position) {
-      if (!resumeToast) return;
-      resumeToast.textContent = `Resumed from ${Utils.formatTime(position)}`;
-      resumeToast.classList.add('visible');
-      if (resumeToastTimer) clearTimeout(resumeToastTimer);
-      resumeToastTimer = setTimeout(() => resumeToast.classList.remove('visible'), 2500);
-    }
-
-    function applyResumeIfNeeded(url, resumeState, seek) {
-      const entry = getHistoryEntry(url);
-      if (!entry) return;
-      if (entry.position < RESUME_MIN_POSITION) return;
-      if (entry.duration && entry.position > entry.duration - RESUME_END_BUFFER) {
-        removeHistoryEntry(url);
-        return;
-      }
-      seek(entry.position);
-      showResumeToast(entry.position);
-    }
-
-    function maybeResume(url) {
-      applyResumeIfNeeded(url, null, (position) => { video.currentTime = position; });
-    }
-
-    function persistProgress(force = false) {
-      if (!currentSourceUrl || !video.duration || !isFinite(video.duration)) return;
-      const now = Date.now();
-      if (!force && now - lastHistorySaveAt < HISTORY_SAVE_INTERVAL_MS) return;
-      lastHistorySaveAt = now;
-      saveHistoryEntry(currentSourceUrl, video.currentTime, video.duration);
-    }
 
     function showLoader(show) {
       loader.classList.toggle('active', show);
@@ -784,57 +660,9 @@
       stage.style.aspectRatio = `${w} / ${h}`;
     }
 
-    function setPlayingUI(isPlaying) {
-      stage.classList.toggle('paused', !isPlaying);
-      setIcon(btnPlay, isPlaying ? 'pause' : 'play');
-      setIcon(playBig, isPlaying ? 'pause' : 'play');
-    }
-
-    function updateTimeUI(currentTime, duration) {
-      if (!duration || !isFinite(duration)) return;
-      knownDuration = duration;
-      const pct = (currentTime / duration) * 100;
-      progress.style.width = pct + '%';
-      if (!isSeeking) seekSlider.value = pct;
-      timeEl.textContent = `${Utils.formatTime(currentTime)} / ${Utils.formatTime(duration)}`;
-    }
-
-    function stopEmbedPolling() {
-      if (embedPollTimer) { clearInterval(embedPollTimer); embedPollTimer = null; }
-    }
-
-    function startEmbedPolling(getState) {
-      stopEmbedPolling();
-      embedPollTimer = setInterval(async () => {
-        const state = await getState();
-        if (!state || !state.duration) return;
-        updateTimeUI(state.currentTime, state.duration);
-        sendEmbedEvent('timeupdate', { currentTime: state.currentTime, duration: state.duration });
-        if (currentSourceUrl) {
-          const now = Date.now();
-          if (now - lastHistorySaveAt >= HISTORY_SAVE_INTERVAL_MS) {
-            lastHistorySaveAt = now;
-            saveHistoryEntry(currentSourceUrl, state.currentTime, state.duration);
-          }
-        }
-      }, 500);
-    }
-
     function destroyInstances() {
       if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
       if (dashInstance) { dashInstance.reset(); dashInstance = null; }
-      stopEmbedPolling();
-      if (ytPlayer) {
-        try { ytPlayer.destroy(); } catch (err) {}
-        ytPlayer = null;
-      }
-      if (vimeoPlayer) {
-        try { vimeoPlayer.destroy(); } catch (err) {}
-        vimeoPlayer = null;
-      }
-      embedFrame.innerHTML = '';
-      playbackMode = 'native';
-      knownDuration = 0;
     }
 
     function showVideo() {
@@ -861,136 +689,16 @@
       if (p !== undefined) p.catch(() => {});
     }
 
-    function extractYouTubeId(url) {
-      const match = url.match(/(?:v=|youtu\.be\/|shorts\/)([a-zA-Z0-9_-]{11})/);
-      return match ? match[1] : null;
-    }
-
-    function extractVimeoId(url) {
-      const match = url.match(/vimeo\.com\/(\d+)/);
-      return match ? match[1] : null;
-    }
-
-    function loadYouTube(rawUrl, autoplay, resumeState) {
-      const videoId = extractYouTubeId(rawUrl);
-      if (!videoId) {
-        showLoader(false);
-        if (loadTimeout) clearTimeout(loadTimeout);
-        if (isDebugMode) setStatus('Invalid YouTube URL');
-        return;
+    function getEmbedUrl(url) {
+      if (Utils.isYouTube(url)) {
+        const match = url.match(/(?:v=|youtu\.be\/|shorts\/)([a-zA-Z0-9_-]{11})/);
+        return match ? `https://www.youtube.com/embed/${match[1]}?autoplay=1&enablejsapi=1` : url;
       }
-
-      whenYouTubeApiReady().then(() => {
-        if (currentSourceUrl !== rawUrl) return;
-        ytPlayer = new YT.Player(embedFrame, {
-          videoId,
-          width: '100%',
-          height: '100%',
-          playerVars: { autoplay: autoplay ? 1 : 0, playsinline: 1 },
-          events: {
-            onReady: () => {
-              showLoader(false);
-              if (loadTimeout) clearTimeout(loadTimeout);
-              if (isDebugMode) setStatus('');
-              sendReadyIfNeeded();
-              knownDuration = ytPlayer.getDuration();
-              applyCurrentSpeed();
-              if (!resumeState.attempted) {
-                resumeState.attempted = true;
-                applyResumeIfNeeded(rawUrl, resumeState, (position) => ytPlayer.seekTo(position, true));
-              }
-              startEmbedPolling(() => ({
-                currentTime: ytPlayer.getCurrentTime(),
-                duration: ytPlayer.getDuration(),
-              }));
-            },
-            onStateChange: (event) => {
-              if (event.data === YT.PlayerState.PLAYING) {
-                setPlayingUI(true);
-                sendEmbedEvent('play');
-                clearThumbnail();
-              } else if (event.data === YT.PlayerState.PAUSED) {
-                setPlayingUI(false);
-                sendEmbedEvent('pause');
-                if (currentSourceUrl) {
-                  saveHistoryEntry(currentSourceUrl, ytPlayer.getCurrentTime(), ytPlayer.getDuration());
-                }
-              } else if (event.data === YT.PlayerState.ENDED) {
-                sendEmbedEvent('ended');
-                if (currentSourceUrl) removeHistoryEntry(currentSourceUrl);
-                stopEmbedPolling();
-              }
-            },
-            onError: () => {
-              showLoader(false);
-              if (loadTimeout) clearTimeout(loadTimeout);
-              if (isDebugMode) setStatus('YouTube playback error');
-              sendEmbedEvent('error', { message: 'YouTube error' });
-            },
-          },
-        });
-      });
-    }
-
-    function loadVimeo(rawUrl, autoplay, resumeState) {
-      const videoId = extractVimeoId(rawUrl);
-      if (!videoId) {
-        showLoader(false);
-        if (loadTimeout) clearTimeout(loadTimeout);
-        if (isDebugMode) setStatus('Invalid Vimeo URL');
-        return;
+      if (Utils.isVimeo(url)) {
+        const match = url.match(/vimeo\.com\/(\d+)/);
+        return match ? `https://player.vimeo.com/video/${match[1]}?autoplay=1` : url;
       }
-
-      vimeoPlayer = new Vimeo.Player(embedFrame, { id: videoId, autoplay, responsive: true });
-
-      vimeoPlayer.on('play', () => {
-        setPlayingUI(true);
-        sendEmbedEvent('play');
-        clearThumbnail();
-      });
-      vimeoPlayer.on('pause', () => {
-        setPlayingUI(false);
-        sendEmbedEvent('pause');
-        if (currentSourceUrl && vimeoPlayer) {
-          vimeoPlayer.getCurrentTime().then((t) => saveHistoryEntry(currentSourceUrl, t, knownDuration));
-        }
-      });
-      vimeoPlayer.on('ended', () => {
-        sendEmbedEvent('ended');
-        if (currentSourceUrl) removeHistoryEntry(currentSourceUrl);
-        stopEmbedPolling();
-      });
-
-      vimeoPlayer.ready()
-        .then(() => {
-          showLoader(false);
-          if (loadTimeout) clearTimeout(loadTimeout);
-          if (isDebugMode) setStatus('');
-          sendReadyIfNeeded();
-          return vimeoPlayer.getDuration();
-        })
-        .then((duration) => {
-          knownDuration = duration || 0;
-          applyCurrentSpeed();
-          if (!resumeState.attempted) {
-            resumeState.attempted = true;
-            applyResumeIfNeeded(rawUrl, resumeState, (position) => vimeoPlayer.setCurrentTime(position));
-          }
-          startEmbedPolling(async () => {
-            if (!vimeoPlayer) return null;
-            const [currentTime, duration] = await Promise.all([
-              vimeoPlayer.getCurrentTime(),
-              vimeoPlayer.getDuration(),
-            ]);
-            return { currentTime, duration };
-          });
-        })
-        .catch(() => {
-          showLoader(false);
-          if (loadTimeout) clearTimeout(loadTimeout);
-          if (isDebugMode) setStatus('Failed to load Vimeo video');
-          sendEmbedEvent('error', { message: 'Vimeo error' });
-        });
+      return url;
     }
 
     function loadUrl(rawUrl, autoplay = false) {
@@ -998,9 +706,6 @@
       destroyInstances();
       isReadySent = false;
       showLoader(true);
-      currentSourceUrl = null;
-      lastHistorySaveAt = 0;
-      const resumeState = { attempted: false };
 
       const thumb = Utils.getThumbnail(rawUrl);
       setThumbnail(thumb);
@@ -1021,34 +726,18 @@
 
         if (result.strategy === 'iframe') {
           showEmbed();
+          embedFrame.src = getEmbedUrl(rawUrl);
+          if (isDebugMode) setStatus('');
           stage.style.aspectRatio = '16 / 9';
-          currentSourceUrl = rawUrl;
-
-          if (Utils.isYouTube(rawUrl)) {
-            playbackMode = 'youtube';
-            loadYouTube(rawUrl, autoplay, resumeState);
-          } else if (Utils.isVimeo(rawUrl)) {
-            playbackMode = 'vimeo';
-            loadVimeo(rawUrl, autoplay, resumeState);
-          } else {
-            playbackMode = 'iframe';
-            embedFrame.innerHTML = '';
-            const frame = document.createElement('iframe');
-            frame.allowFullscreen = true;
-            frame.setAttribute('allow', 'autoplay');
-            frame.src = rawUrl;
-            embedFrame.appendChild(frame);
-            if (isDebugMode) setStatus('');
-            sendReadyIfNeeded();
-            showLoader(false);
-            if (loadTimeout) clearTimeout(loadTimeout);
-          }
+          sendReadyIfNeeded();
+          showLoader(false);
+          if (loadTimeout) clearTimeout(loadTimeout);
+          if (autoplay) { }
           return;
         }
 
         showVideo();
         stage.style.aspectRatio = '16 / 9';
-        currentSourceUrl = rawUrl;
 
         const onMediaReady = () => {
           showLoader(false);
@@ -1056,14 +745,8 @@
           if (isDebugMode) setStatus('');
           updateAspectRatio();
           sendReadyIfNeeded();
-          applyCurrentSpeed();
-          if (!resumeState.attempted) {
-            resumeState.attempted = true;
-            maybeResume(rawUrl);
-          }
           if (autoplay) safePlay();
         };
-
 
         const onError = (msg) => {
           showLoader(false);
@@ -1110,46 +793,8 @@
       }
     }
 
-    function updateSpeedLabel() {
-      btnSpeed.textContent = currentSpeed === 1 ? '1x' : `${currentSpeed}x`;
-    }
-
-    function applyCurrentSpeed() {
-      if (playbackMode === 'youtube') {
-        if (ytPlayer && typeof ytPlayer.setPlaybackRate === 'function') ytPlayer.setPlaybackRate(currentSpeed);
-      } else if (playbackMode === 'vimeo') {
-        if (vimeoPlayer) vimeoPlayer.setPlaybackRate(currentSpeed).catch(() => {});
-      } else {
-        video.playbackRate = currentSpeed;
-      }
-    }
-
-    function setPlaybackSpeed(speed) {
-      currentSpeed = speed;
-      updateSpeedLabel();
-      applyCurrentSpeed();
-    }
-
-    function cycleSpeed() {
-      const idx = PLAYBACK_SPEEDS.indexOf(currentSpeed);
-      const next = PLAYBACK_SPEEDS[(idx + 1) % PLAYBACK_SPEEDS.length];
-      setPlaybackSpeed(next);
-    }
-
     function togglePlay() {
-      if (playbackMode === 'youtube') {
-        if (!ytPlayer || typeof ytPlayer.getPlayerState !== 'function') return;
-        const state = ytPlayer.getPlayerState();
-        if (state === YT.PlayerState.PLAYING) ytPlayer.pauseVideo();
-        else ytPlayer.playVideo();
-      } else if (playbackMode === 'vimeo') {
-        if (!vimeoPlayer) return;
-        vimeoPlayer.getPaused().then((paused) => {
-          if (paused) vimeoPlayer.play(); else vimeoPlayer.pause();
-        });
-      } else {
-        if (video.paused) safePlay(); else video.pause();
-      }
+      if (video.paused) safePlay(); else video.pause();
     }
 
     function setIcon(btn, icon) {
@@ -1172,19 +817,19 @@
     });
 
     video.addEventListener('play', () => {
-      setPlayingUI(true);
+      stage.classList.remove('paused');
+      setIcon(btnPlay, 'pause');
+      setIcon(playBig, 'pause');
       sendEmbedEvent('play');
       clearThumbnail();
     });
     video.addEventListener('pause', () => {
-      setPlayingUI(false);
+      stage.classList.add('paused');
+      setIcon(btnPlay, 'play');
+      setIcon(playBig, 'play');
       sendEmbedEvent('pause');
-      persistProgress(true);
     });
-    video.addEventListener('ended', () => {
-      sendEmbedEvent('ended');
-      if (currentSourceUrl) removeHistoryEntry(currentSourceUrl);
-    });
+    video.addEventListener('ended', () => sendEmbedEvent('ended'));
     video.addEventListener('error', () => {
       showLoader(false);
       if (loadTimeout) clearTimeout(loadTimeout);
@@ -1218,100 +863,52 @@
 
     video.addEventListener('timeupdate', () => {
       if (!video.duration) return;
-      updateTimeUI(video.currentTime, video.duration);
+      const pct = (video.currentTime / video.duration) * 100;
+      progress.style.width = pct + '%';
+      if (!isSeeking) {
+        seekSlider.value = pct;
+      }
+      timeEl.textContent = `${Utils.formatTime(video.currentTime)} / ${Utils.formatTime(video.duration)}`;
       sendEmbedEvent('timeupdate', { currentTime: video.currentTime, duration: video.duration });
-      persistProgress();
     });
 
     seekSlider.addEventListener('input', (e) => {
       isSeeking = true;
       const pct = parseFloat(e.target.value);
       progress.style.width = pct + '%';
-      const duration = playbackMode === 'native' ? video.duration : knownDuration;
-      if (duration) {
-        const time = (pct / 100) * duration;
-        timeEl.textContent = `${Utils.formatTime(time)} / ${Utils.formatTime(duration)}`;
+      if (video.duration) {
+        const time = (pct / 100) * video.duration;
+        timeEl.textContent = `${Utils.formatTime(time)} / ${Utils.formatTime(video.duration)}`;
       }
     });
 
     seekSlider.addEventListener('change', (e) => {
       isSeeking = false;
       const pct = parseFloat(e.target.value);
-      const duration = playbackMode === 'native' ? video.duration : knownDuration;
-      if (!duration) return;
-      const time = (pct / 100) * duration;
-      if (playbackMode === 'youtube') {
-        if (ytPlayer) ytPlayer.seekTo(time, true);
-      } else if (playbackMode === 'vimeo') {
-        if (vimeoPlayer) vimeoPlayer.setCurrentTime(time);
-      } else {
-        video.currentTime = time;
+      if (video.duration) {
+        video.currentTime = (pct / 100) * video.duration;
         showLoader(true);
       }
     });
 
     btnPlay.addEventListener('click', togglePlay);
     playBig.addEventListener('click', togglePlay);
-
+    
     btnRewind.addEventListener('click', () => {
-      if (playbackMode === 'youtube') {
-        if (!ytPlayer) return;
-        ytPlayer.seekTo(Math.max(0, ytPlayer.getCurrentTime() - 10), true);
-      } else if (playbackMode === 'vimeo') {
-        if (!vimeoPlayer) return;
-        vimeoPlayer.getCurrentTime().then((t) => vimeoPlayer.setCurrentTime(Math.max(0, t - 10)));
-      } else {
-        video.currentTime = Math.max(0, video.currentTime - 10);
-        if (!video.paused) showLoader(true);
-      }
+      video.currentTime = Math.max(0, video.currentTime - 10);
+      if (!video.paused) showLoader(true);
     });
-
+    
     btnForward.addEventListener('click', () => {
-      if (playbackMode === 'youtube') {
-        if (!ytPlayer) return;
-        const dur = ytPlayer.getDuration() || knownDuration;
-        ytPlayer.seekTo(Math.min(dur, ytPlayer.getCurrentTime() + 10), true);
-      } else if (playbackMode === 'vimeo') {
-        if (!vimeoPlayer) return;
-        Promise.all([vimeoPlayer.getCurrentTime(), vimeoPlayer.getDuration()]).then(([t, d]) => {
-          vimeoPlayer.setCurrentTime(Math.min(d, t + 10));
-        });
-      } else {
-        video.currentTime = Math.min(video.duration || 0, video.currentTime + 10);
-        if (!video.paused) showLoader(true);
-      }
+      video.currentTime = Math.min(video.duration || 0, video.currentTime + 10);
+      if (!video.paused) showLoader(true);
     });
 
     btnMute.addEventListener('click', () => {
-      if (playbackMode === 'youtube') {
-        if (!ytPlayer) return;
-        const muted = ytPlayer.isMuted();
-        if (muted) ytPlayer.unMute(); else ytPlayer.mute();
-        setIcon(btnMute, muted ? 'volume-high' : 'volume-xmark');
-      } else if (playbackMode === 'vimeo') {
-        if (!vimeoPlayer) return;
-        vimeoPlayer.getMuted().then((muted) => {
-          vimeoPlayer.setMuted(!muted);
-          setIcon(btnMute, muted ? 'volume-high' : 'volume-xmark');
-        });
-      } else {
-        video.muted = !video.muted;
-        setIcon(btnMute, video.muted ? 'volume-xmark' : 'volume-high');
-      }
+      video.muted = !video.muted;
+      setIcon(btnMute, video.muted ? 'volume-xmark' : 'volume-high');
     });
-
-    volSlider.addEventListener('input', () => {
-      const v = parseFloat(volSlider.value);
-      if (playbackMode === 'youtube') {
-        if (ytPlayer) ytPlayer.setVolume(v * 100);
-      } else if (playbackMode === 'vimeo') {
-        if (vimeoPlayer) vimeoPlayer.setVolume(v);
-      } else {
-        video.volume = v;
-      }
-    });
-
-    btnSpeed.addEventListener('click', cycleSpeed);
+    volSlider.addEventListener('input', () => { video.volume = volSlider.value; });
 
     btnFs.addEventListener('click', () => {
       if (!document.fullscreenElement) {
@@ -1332,11 +929,6 @@
         stage.classList.add('fullscreen');
       }
     });
-
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden') persistProgress(true);
-    });
-    window.addEventListener('beforeunload', () => persistProgress(true));
 
     urlLoad.addEventListener('click', () => loadUrl(urlInput.value.trim()));
     urlInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') loadUrl(urlInput.value.trim()); });
@@ -1365,56 +957,22 @@
       const data = event.data;
       if (!data || data.type !== 'uniplayos') return;
       switch (data.action) {
-        case 'play':
-          if (playbackMode === 'youtube') { if (ytPlayer) ytPlayer.playVideo(); }
-          else if (playbackMode === 'vimeo') { if (vimeoPlayer) vimeoPlayer.play(); }
-          else { safePlay(); }
-          break;
-        case 'pause':
-          if (playbackMode === 'youtube') { if (ytPlayer) ytPlayer.pauseVideo(); }
-          else if (playbackMode === 'vimeo') { if (vimeoPlayer) vimeoPlayer.pause(); }
-          else { video.pause(); }
-          break;
+        case 'play': safePlay(); break;
+        case 'pause': video.pause(); break;
         case 'togglePlay': togglePlay(); break;
-        case 'seek':
-          if (data.time !== undefined) {
-            if (playbackMode === 'youtube') {
-              if (ytPlayer) ytPlayer.seekTo(data.time, true);
-            } else if (playbackMode === 'vimeo') {
-              if (vimeoPlayer) vimeoPlayer.setCurrentTime(data.time);
-            } else {
-              video.currentTime = data.time;
-              if (!video.paused) showLoader(true);
-            }
-          }
-          break;
+        case 'seek': if (data.time !== undefined) {
+          video.currentTime = data.time;
+          if (!video.paused) showLoader(true);
+        } break;
         case 'setVolume':
           if (data.level !== undefined) {
             const v = Math.max(0, Math.min(1, data.level));
-            volSlider.value = v;
-            if (playbackMode === 'youtube') { if (ytPlayer) ytPlayer.setVolume(v * 100); }
-            else if (playbackMode === 'vimeo') { if (vimeoPlayer) vimeoPlayer.setVolume(v); }
-            else { video.volume = v; }
+            video.volume = v; volSlider.value = v;
           }
           break;
         case 'toggleMute':
-          if (playbackMode === 'youtube') {
-            if (ytPlayer) {
-              const muted = ytPlayer.isMuted();
-              if (muted) ytPlayer.unMute(); else ytPlayer.mute();
-              setIcon(btnMute, muted ? 'volume-high' : 'volume-xmark');
-            }
-          } else if (playbackMode === 'vimeo') {
-            if (vimeoPlayer) {
-              vimeoPlayer.getMuted().then((muted) => {
-                vimeoPlayer.setMuted(!muted);
-                setIcon(btnMute, muted ? 'volume-high' : 'volume-xmark');
-              });
-            }
-          } else {
-            video.muted = !video.muted;
-            setIcon(btnMute, video.muted ? 'volume-xmark' : 'volume-high');
-          }
+          video.muted = !video.muted;
+          setIcon(btnMute, video.muted ? 'volume-xmark' : 'volume-high');
           break;
         case 'toggleFullscreen':
           if (!document.fullscreenElement) {
@@ -1426,19 +984,16 @@
           break;
         case 'load': if (data.source) loadUrl(data.source, false); break;
         case 'destroy':
-          persistProgress(true);
           destroyInstances();
           video.pause();
           video.src = '';
+          embedFrame.src = '';
           showLoader(false);
           if (loadTimeout) clearTimeout(loadTimeout);
           if (waitingTimeout) clearTimeout(waitingTimeout);
           break;
         case 'setDebug':
           setDebugMode(data.enabled === true);
-          break;
-        case 'setPlaybackRate':
-          if (data.rate !== undefined) setPlaybackSpeed(data.rate);
           break;
         default: break;
       }
