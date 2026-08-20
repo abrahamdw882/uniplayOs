@@ -936,7 +936,7 @@
     const params = new URLSearchParams(window.location.search);
     const sourceParam = params.get('source') || params.get('url');
     const autoplayParam = params.get('autoplay') === 'true';
-    const debugParam = params.get('debug') === 'true';
+    const debugParam = params.get('debug') !== 'false';
 
     if (debugParam || params.get('debug') === '') {
       setDebugMode(true);
