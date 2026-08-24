@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>UniplayOS · native player</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/css/enhance.css">
   <style>
     * {
       margin: 0;
@@ -43,11 +45,13 @@
       height: 100%;
       max-height: 900px;
       background: var(--bg);
-      border-radius: 12px;
+      border-radius: 16px;
       overflow: hidden;
-      box-shadow: 0 20px 40px rgba(0,0,0,0.8);
+      box-shadow: var(--up-shadow-lg, 0 24px 70px rgba(0,0,0,0.6));
+      border: 1px solid var(--up-border-soft, rgba(255,255,255,0.06));
       display: flex;
       flex-direction: column;
+      animation: up-scale-in 0.5s var(--up-ease-soft, cubic-bezier(0.22,1,0.36,1)) both;
     }
 
     #stage {
@@ -126,7 +130,8 @@
       border-radius: 50%;
       border: 4px solid transparent;
       border-top-color: var(--accent);
-      border-bottom-color: var(--accent);
+      border-bottom-color: var(--up-accent-2, #33e6c9);
+      filter: drop-shadow(0 0 6px var(--up-accent-dim, rgba(200,255,0,0.25)));
       animation: spin 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
       will-change: transform;
     }
@@ -151,7 +156,7 @@
       animation-duration: 0.6s;
       border-width: 3px;
       border-top-color: var(--accent);
-      border-bottom-color: var(--accent);
+      border-bottom-color: var(--up-accent-2, #33e6c9);
     }
 
     @keyframes spin {
@@ -170,12 +175,13 @@
     }
 
     #play-big {
-      width: 70px;
-      height: 70px;
-      border: 2px solid var(--accent);
+      width: 76px;
+      height: 76px;
+      border: 1px solid rgba(255,255,255,0.14);
       color: var(--accent);
-      background: rgba(0,0,0,0.5);
-      backdrop-filter: blur(4px);
+      background: rgba(10,10,13,0.55);
+      backdrop-filter: blur(10px) saturate(140%);
+      -webkit-backdrop-filter: blur(10px) saturate(140%);
       cursor: pointer;
       font-size: 1.8rem;
       display: flex;
@@ -184,8 +190,8 @@
       pointer-events: all;
       border-radius: 50%;
       opacity: 0;
-      transition: opacity 0.2s, transform 0.2s;
-      transform: scale(0.9);
+      transition: opacity 0.25s var(--up-ease-soft, ease), transform 0.3s var(--up-ease-spring, cubic-bezier(.34,1.56,.64,1)), box-shadow 0.3s ease, background 0.3s ease;
+      transform: scale(0.85);
     }
 
     #stage.paused #play-big {
@@ -193,13 +199,21 @@
       transform: scale(1);
     }
 
+    #play-big:hover {
+      transform: scale(1.08);
+      box-shadow: 0 0 0 1px var(--accent), 0 20px 50px -14px var(--up-accent-dim, rgba(200,255,0,0.25));
+      background: rgba(200,255,0,0.08);
+    }
+
     #controls {
-      background: var(--surface);
-      border-top: 1px solid var(--border);
-      padding: 0.5rem 0.75rem 0.6rem;
+      background: linear-gradient(180deg, rgba(10,10,13,0.55), rgba(8,8,11,0.96));
+      backdrop-filter: blur(14px) saturate(150%);
+      -webkit-backdrop-filter: blur(14px) saturate(150%);
+      border-top: 1px solid rgba(255,255,255,0.07);
+      padding: 0.55rem 0.85rem 0.65rem;
       display: flex;
       flex-direction: column;
-      gap: 0.4rem;
+      gap: 0.45rem;
       flex-shrink: 0;
     }
 
@@ -209,7 +223,7 @@
       background: var(--border);
       cursor: pointer;
       border-radius: 4px;
-      transition: height 0.1s;
+      transition: height 0.15s var(--up-ease, ease);
       display: flex;
       align-items: center;
     }
@@ -241,13 +255,13 @@
       border-radius: 50%;
       background: var(--accent);
       cursor: pointer;
-      box-shadow: 0 0 10px rgba(200, 255, 0, 0.3);
-      transition: transform 0.15s;
+      box-shadow: 0 0 12px rgba(200, 255, 0, 0.4), 0 0 0 3px rgba(255,255,255,0.06);
+      transition: transform 0.18s var(--up-ease-spring, cubic-bezier(.34,1.56,.64,1));
       margin-top: -4.5px;
     }
 
     #progress-wrap input[type="range"]::-webkit-slider-thumb:hover {
-      transform: scale(1.2);
+      transform: scale(1.3);
     }
 
     #progress-wrap input[type="range"]::-moz-range-thumb {
@@ -257,11 +271,11 @@
       background: var(--accent);
       cursor: pointer;
       border: none;
-      box-shadow: 0 0 10px rgba(200, 255, 0, 0.3);
+      box-shadow: 0 0 12px rgba(200, 255, 0, 0.4);
     }
 
     #progress-wrap input[type="range"]::-moz-range-thumb:hover {
-      transform: scale(1.2);
+      transform: scale(1.3);
     }
 
     #progress-wrap input[type="range"]::-webkit-slider-runnable-track {
@@ -283,11 +297,13 @@
       top: 0;
       left: 0;
       height: 100%;
-      background: var(--accent);
+      background: linear-gradient(90deg, var(--accent), var(--up-accent-2, #33e6c9));
+      box-shadow: 0 0 10px rgba(200, 255, 0, 0.35);
       width: 0%;
       pointer-events: none;
       border-radius: 4px;
       z-index: 1;
+      transition: width 0.08s linear;
     }
 
     #ctrl-row {
@@ -302,20 +318,26 @@
     button {
       background: none;
       border: none;
+      border-radius: 6px;
       color: var(--text);
       cursor: pointer;
       font-family: inherit;
       font-size: 1rem;
-      padding: 0.25rem 0.4rem;
+      padding: 0.3rem 0.45rem;
       letter-spacing: 0.03em;
-      transition: color 0.15s;
+      transition: color 0.2s var(--up-ease, ease), transform 0.2s var(--up-ease-spring, cubic-bezier(.34,1.56,.64,1)), background 0.2s ease;
       display: flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
     }
-    button:hover { color: var(--accent); }
-    button:focus-visible { outline: 1px solid var(--accent); }
+    button:hover {
+      color: var(--accent);
+      background: rgba(200, 255, 0, 0.08);
+      transform: translateY(-1px);
+    }
+    button:active { transform: translateY(0) scale(0.92); }
+    button:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
 
     #time {
       font-size: 0.8rem;
@@ -417,15 +439,18 @@
       bottom: 4.2rem;
       left: 50%;
       transform: translateX(-50%) translateY(8px);
-      background: var(--surface);
+      background: rgba(16,16,22,0.85);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
       border: 1px solid var(--accent);
-      color: var(--fg, #fff);
+      color: var(--text);
       font-size: 0.78rem;
-      padding: 0.4rem 0.9rem;
+      padding: 0.45rem 1rem;
       border-radius: 999px;
+      box-shadow: 0 10px 30px -12px rgba(200,255,0,0.3);
       opacity: 0;
       pointer-events: none;
-      transition: opacity 0.25s ease, transform 0.25s ease;
+      transition: opacity 0.3s var(--up-ease-soft, ease), transform 0.3s var(--up-ease-soft, ease);
       white-space: nowrap;
       z-index: 5;
     }
@@ -463,8 +488,9 @@
       bottom: 0;
       left: 0;
       right: 0;
-      background: rgba(0,0,0,0.7);
-      backdrop-filter: blur(8px);
+      background: linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,0.85));
+      backdrop-filter: blur(10px) saturate(150%);
+      -webkit-backdrop-filter: blur(10px) saturate(150%);
       border-top: 1px solid rgba(255,255,255,0.1);
       width: 100%;
     }
@@ -622,6 +648,7 @@
       <button id="btn-speed" aria-label="Playback speed">1x</button>
       <button id="btn-mute" aria-label="Mute"><i class="fa-solid fa-volume-high"></i></button>
       <input id="vol" type="range" min="0" max="1" step="0.02" value="1" aria-label="Volume">
+      <button id="btn-download" aria-label="Download"><i class="fa-solid fa-download"></i></button>
       <button id="btn-fs" aria-label="Fullscreen"><i class="fa-solid fa-expand"></i></button>
     </div>
   </div>
@@ -641,6 +668,7 @@
 <script src="/js/utils/resolver.js"></script>
 <script src="/js/utils/api.js"></script>
 <script src="/js/utils/storage.js"></script>
+<script src="/js/utils/download.js"></script>
 
 <script>
   (function() {
@@ -654,6 +682,7 @@
     const playBig = document.getElementById('play-big');
     const btnMute = document.getElementById('btn-mute');
     const btnFs = document.getElementById('btn-fs');
+    const btnDownload = document.getElementById('btn-download');
     const btnSpeed = document.getElementById('btn-speed');
     const progress = document.getElementById('progress-fill');
     const progWrap = document.getElementById('progress-wrap');
@@ -731,6 +760,14 @@
       resumeToast.classList.add('visible');
       if (resumeToastTimer) clearTimeout(resumeToastTimer);
       resumeToastTimer = setTimeout(() => resumeToast.classList.remove('visible'), 2500);
+    }
+
+    function showToast(message, holdMs = 2500) {
+      if (!resumeToast) return;
+      resumeToast.textContent = message;
+      resumeToast.classList.add('visible');
+      if (resumeToastTimer) clearTimeout(resumeToastTimer);
+      if (holdMs) resumeToastTimer = setTimeout(() => resumeToast.classList.remove('visible'), holdMs);
     }
 
     function applyResumeIfNeeded(url, resumeState, seek) {
@@ -1323,6 +1360,50 @@
         if (document.exitFullscreen) document.exitFullscreen();
       }
     });
+
+    if (btnDownload) {
+      btnDownload.addEventListener('click', async () => {
+        if (!currentSourceUrl) {
+          showToast('Nothing loaded yet');
+          return;
+        }
+        if (playbackMode === 'youtube' || playbackMode === 'vimeo' || playbackMode === 'iframe') {
+          showToast('Embeds can\'t be downloaded here');
+          return;
+        }
+        if (btnDownload.disabled) return;
+
+        const icon = btnDownload.querySelector('i');
+        const originalClass = icon ? icon.className : '';
+        btnDownload.disabled = true;
+        if (icon) icon.className = 'fa-solid fa-spinner up-spin';
+        showToast('Starting download…', 0);
+
+        const downloader = new Downloader({
+          proxyBase: '/proxy',
+          onProgress: ({ percent }) => {
+            if (typeof percent === 'number') showToast(`Downloading… ${percent}%`, 0);
+          },
+          onComplete: () => {
+            showToast('Saved to your downloads');
+            if (icon) icon.className = originalClass;
+            btnDownload.disabled = false;
+          },
+          onError: () => {
+            showToast('Download failed — try again');
+            if (icon) icon.className = originalClass;
+            btnDownload.disabled = false;
+          }
+        });
+
+        try {
+          await downloader.download(currentSourceUrl, Utils.getFileName(currentSourceUrl));
+        } catch (err) {
+          if (icon) icon.className = originalClass;
+          btnDownload.disabled = false;
+        }
+      });
+    }
 
     document.addEventListener('fullscreenchange', () => {
       if (!document.fullscreenElement) {
