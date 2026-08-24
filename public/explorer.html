@@ -1,1 +1,63 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>explore</title></head><body><p>explore</p></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UniplayOS · Explorer</title>
+<link rel="icon" type="image/svg+xml" href="/assets/logo-wordmark.svg">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="/css/enhance.css">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--up-bg);
+    color: var(--up-text);
+    font-family: 'Courier New', Courier, monospace;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1.25rem;
+    background-image: radial-gradient(circle at 80% 20%, rgba(200,255,0,0.06), transparent 40%);
+  }
+  main { width: 100%; max-width: 40rem; text-align: center; }
+  .icon-orb {
+    width: 84px; height: 84px; margin: 0 auto 1.4rem;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--up-surface);
+    border: 1px solid var(--up-border);
+    font-size: 1.9rem;
+    color: var(--up-accent);
+  }
+  h1 { font-size: clamp(1.6rem, 6vw, 2.4rem); letter-spacing: -0.02em; margin-bottom: 0.6rem; }
+  p.lede { color: var(--up-muted); font-size: 0.9rem; line-height: 1.7; max-width: 30rem; margin: 0 auto 2rem; }
+  .search-mock {
+    display: flex; align-items: center; gap: 0.6rem;
+    background: var(--up-surface); border: 1px solid var(--up-border);
+    border-radius: 999px; padding: 0.8rem 1.2rem; margin: 0 auto 2rem;
+    max-width: 24rem; color: var(--up-muted); font-size: 0.8rem;
+  }
+  .row { display: flex; gap: 0.8rem; justify-content: center; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+<main class="up-stagger">
+  <div class="icon-orb up-float"><i class="fa-solid fa-compass"></i></div>
+  <h1>Explorer is still charting the map<span class="up-gradient-text">.</span></h1>
+  <p class="lede">Browsing and discovery for hosted media isn't wired up yet. For now, paste a direct URL into the resolver, or launch the player straight away.</p>
+
+  <div class="search-mock" aria-hidden="true">
+    <i class="fa-solid fa-magnifying-glass" style="color:var(--up-accent);"></i>
+    <span>search catalog… (coming soon)</span>
+  </div>
+
+  <nav class="row">
+    <a class="up-btn up-btn-primary" href="/test.html"><i class="fa-solid fa-flask"></i> Try the Resolver</a>
+    <a class="up-btn" href="/player.html"><i class="fa-solid fa-play"></i> Launch Player</a>
+    <a class="up-btn" href="/"><i class="fa-solid fa-house"></i> Home</a>
+  </nav>
+</main>
+</body>
+</html>
