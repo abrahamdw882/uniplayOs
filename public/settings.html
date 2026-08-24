@@ -1,1 +1,66 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>settings</title></head><body><p>settings</p></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UniplayOS · Settings</title>
+<link rel="icon" type="image/svg+xml" href="/assets/logo-wordmark.svg">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="/css/enhance.css">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--up-bg);
+    color: var(--up-text);
+    font-family: 'Courier New', Courier, monospace;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1.25rem;
+    background-image: radial-gradient(circle at 15% 80%, rgba(200,255,0,0.06), transparent 40%);
+  }
+  main { width: 100%; max-width: 40rem; text-align: center; }
+  .icon-orb {
+    width: 84px; height: 84px; margin: 0 auto 1.4rem;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--up-surface);
+    border: 1px solid var(--up-border);
+    font-size: 1.9rem;
+    color: var(--up-accent);
+  }
+  .icon-orb i { animation: up-spin 6s linear infinite; }
+  h1 { font-size: clamp(1.6rem, 6vw, 2.4rem); letter-spacing: -0.02em; margin-bottom: 0.6rem; }
+  p.lede { color: var(--up-muted); font-size: 0.9rem; line-height: 1.7; max-width: 30rem; margin: 0 auto 2rem; }
+  .toggles { display: flex; flex-direction: column; gap: 0.7rem; max-width: 22rem; margin: 0 auto 2rem; text-align: left; }
+  .toggle-row {
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--up-surface); border: 1px solid var(--up-border);
+    border-radius: 10px; padding: 0.75rem 1rem; font-size: 0.8rem; color: var(--up-muted);
+  }
+  .switch { width: 34px; height: 18px; border-radius: 999px; background: var(--up-border); position: relative; opacity: 0.6; }
+  .switch::after { content:''; position:absolute; top:2px; left:2px; width:14px; height:14px; border-radius:50%; background: var(--up-muted); }
+  .row { display: flex; gap: 0.8rem; justify-content: center; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+<main class="up-stagger">
+  <div class="icon-orb"><i class="fa-solid fa-gear"></i></div>
+  <h1>Settings are being wired up<span class="up-gradient-text">.</span></h1>
+  <p class="lede">Playback preferences, theme controls and account options will live here. Nothing to configure yet — everything below is a preview.</p>
+
+  <div class="toggles" aria-hidden="true">
+    <div class="toggle-row"><span>Autoplay next item</span><span class="switch"></span></div>
+    <div class="toggle-row"><span>Reduce motion</span><span class="switch"></span></div>
+    <div class="toggle-row"><span>Default quality: Auto</span><span class="switch"></span></div>
+  </div>
+
+  <nav class="row">
+    <a class="up-btn up-btn-primary" href="/player.html"><i class="fa-solid fa-play"></i> Launch Player</a>
+    <a class="up-btn" href="/"><i class="fa-solid fa-house"></i> Home</a>
+  </nav>
+</main>
+</body>
+</html>
