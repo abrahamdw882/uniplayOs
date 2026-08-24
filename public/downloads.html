@@ -1,1 +1,579 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>downloads</title></head><body><p>downloads</p></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UniplayOS · Downloads</title>
+<link rel="icon" type="image/svg+xml" href="/assets/logo-wordmark.svg">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="/css/enhance.css">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--up-bg);
+    color: var(--up-text);
+    font-family: 'Courier New', Courier, monospace;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 1.25rem;
+    position: relative;
+    overflow-x: hidden;
+    background-image:
+      radial-gradient(circle at 18% 12%, rgba(200,255,0,0.07), transparent 42%),
+      radial-gradient(circle at 85% 85%, rgba(51,230,201,0.06), transparent 45%);
+  }
+
+  .noise {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.035;
+    z-index: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  main { position: relative; z-index: 1; width: 100%; max-width: 42rem; }
+
+  header.hero { text-align: center; margin-bottom: 2.2rem; }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.95rem;
+    border: 1px solid var(--up-border);
+    border-radius: 999px;
+    background: var(--up-surface);
+    color: var(--up-muted);
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 1.2rem;
+  }
+  .badge .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--up-accent);
+    box-shadow: 0 0 8px var(--up-accent);
+    animation: up-glow-pulse 2s ease-in-out infinite;
+  }
+
+  h1 {
+    font-size: clamp(1.8rem, 6vw, 2.6rem);
+    letter-spacing: -0.02em;
+    margin-bottom: 0.6rem;
+    line-height: 1.15;
+  }
+
+  p.lede {
+    color: var(--up-muted);
+    font-size: 0.88rem;
+    line-height: 1.7;
+    max-width: 30rem;
+    margin: 0 auto;
+  }
+
+  .panel {
+    padding: 1.6rem;
+  }
+
+  #dl-form {
+    display: flex;
+    gap: 0.6rem;
+  }
+
+  #dl-url {
+    flex: 1;
+    min-width: 0;
+    background: var(--up-bg-elevated);
+    border: 1px solid var(--up-border);
+    color: var(--up-text);
+    font-family: inherit;
+    font-size: 0.85rem;
+    padding: 0.85rem 1rem;
+    border-radius: var(--up-radius-sm);
+    outline: none;
+    transition: border-color 0.25s var(--up-ease), box-shadow 0.25s var(--up-ease);
+  }
+  #dl-url:focus {
+    border-color: var(--up-accent);
+    box-shadow: 0 0 0 3px var(--up-accent-dim);
+  }
+  #dl-url::placeholder { color: var(--up-faint); }
+
+  #dl-form button {
+    font-family: inherit;
+    font-size: 0.85rem;
+    border: none;
+    white-space: nowrap;
+  }
+
+  #dl-info {
+    margin-top: 1.2rem;
+    display: none;
+    animation: up-fade-up 0.4s var(--up-ease-soft) both;
+  }
+  #dl-info.visible { display: block; }
+
+  .kv-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.6rem;
+    margin-bottom: 1.2rem;
+  }
+  .kv {
+    background: var(--up-bg-elevated);
+    border: 1px solid var(--up-border);
+    border-radius: 10px;
+    padding: 0.7rem 0.9rem;
+  }
+  .kv .k {
+    display: block;
+    font-size: 0.62rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--up-faint);
+    margin-bottom: 0.25rem;
+  }
+  .kv .v {
+    display: block;
+    font-size: 0.82rem;
+    color: var(--up-text);
+    word-break: break-all;
+  }
+  .kv .v.accent { color: var(--up-accent); }
+
+  #dl-preview {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: #000;
+    border-radius: var(--up-radius-md);
+    overflow: hidden;
+    margin-bottom: 1.2rem;
+    display: none;
+    border: 1px solid var(--up-border-soft);
+  }
+  #dl-preview.visible { display: block; }
+  #dl-preview video, #dl-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #000;
+    display: block;
+  }
+
+  #dl-actions {
+    display: flex;
+    gap: 0.8rem;
+    flex-wrap: wrap;
+  }
+
+  #btn-download-file {
+    flex: 1;
+    min-width: 10rem;
+    justify-content: center;
+  }
+
+  #dl-progress-wrap {
+    margin-top: 1rem;
+    display: none;
+  }
+  #dl-progress-wrap.visible { display: block; }
+
+  #dl-progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.72rem;
+    color: var(--up-muted);
+    margin-bottom: 0.4rem;
+  }
+  #dl-progress-label .pct { color: var(--up-accent); }
+
+  #dl-progress-track {
+    height: 6px;
+    border-radius: 999px;
+    background: var(--up-border);
+    overflow: hidden;
+    position: relative;
+  }
+  #dl-progress-fill {
+    height: 100%;
+    width: 0%;
+    background: var(--up-gradient);
+    background-size: 200% auto;
+    box-shadow: 0 0 12px var(--up-accent-dim);
+    border-radius: 999px;
+    transition: width 0.25s var(--up-ease);
+    animation: up-gradient-shift 3s ease-in-out infinite;
+  }
+  #dl-progress-fill.indeterminate {
+    width: 40% !important;
+    animation: up-shimmer 1.2s linear infinite, up-gradient-shift 3s ease-in-out infinite;
+    position: absolute;
+  }
+
+  #dl-status {
+    margin-top: 0.9rem;
+    font-size: 0.76rem;
+    color: var(--up-muted);
+    min-height: 1.2rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  #dl-status.error { color: #ff6b6b; }
+  #dl-status.ok { color: var(--up-accent); }
+
+  .recent {
+    margin-top: 1.6rem;
+  }
+  .recent h2 {
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--up-faint);
+    margin-bottom: 0.7rem;
+  }
+  #recent-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .recent-item {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.6rem 0.8rem;
+    font-size: 0.76rem;
+    color: var(--up-muted);
+  }
+  .recent-item i { color: var(--up-accent); flex-shrink: 0; }
+  .recent-item span.name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--up-text);
+  }
+  .recent-item button {
+    background: none;
+    border: 1px solid var(--up-border);
+    color: var(--up-muted);
+    border-radius: 6px;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.68rem;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.2s var(--up-ease);
+  }
+  .recent-item button:hover { color: var(--up-accent); border-color: var(--up-accent); }
+
+  nav.row {
+    display: flex;
+    gap: 0.7rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 2rem;
+  }
+
+  @media (max-width: 560px) {
+    #dl-form { flex-direction: column; }
+    .kv-grid { grid-template-columns: 1fr; }
+    body { padding: 2rem 1rem; }
+  }
+</style>
+</head>
+<body>
+<div class="noise" aria-hidden="true"></div>
+<main>
+  <header class="hero up-animate-in">
+    <p class="badge"><span class="dot"></span> Direct · Proxied · Any host</p>
+    <h1>Grab your video, <span class="up-gradient-text">straight to disk</span></h1>
+    <p class="lede">Paste a media URL below. UniplayOS resolves it the same way the player does, previews it, then streams the file down through the proxy so it saves locally.</p>
+  </header>
+
+  <section class="up-card panel up-animate-in" style="animation-delay:0.1s;">
+    <form id="dl-form">
+      <input id="dl-url" type="url" placeholder="Paste a video, audio or stream URL…" spellcheck="false" autocomplete="off" required>
+      <button type="submit" class="up-btn up-btn-primary" id="btn-resolve">
+        <i class="fa-solid fa-magnifying-glass"></i> Resolve
+      </button>
+    </form>
+
+    <div id="dl-info">
+      <div id="dl-preview"></div>
+
+      <div class="kv-grid">
+        <div class="kv">
+          <span class="k">Type</span>
+          <span class="v accent" id="kv-type">—</span>
+        </div>
+        <div class="kv">
+          <span class="k">Filename</span>
+          <span class="v" id="kv-name">—</span>
+        </div>
+        <div class="kv">
+          <span class="k">Source</span>
+          <span class="v" id="kv-source">—</span>
+        </div>
+        <div class="kv">
+          <span class="k">Route</span>
+          <span class="v" id="kv-route">—</span>
+        </div>
+      </div>
+
+      <div id="dl-actions">
+        <button type="button" class="up-btn up-btn-primary" id="btn-download-file">
+          <i class="fa-solid fa-download"></i> Download file
+        </button>
+        <a class="up-btn" id="btn-open-player" href="/player.html">
+          <i class="fa-solid fa-play"></i> Open in player
+        </a>
+      </div>
+
+      <div id="dl-progress-wrap">
+        <div id="dl-progress-label">
+          <span>Downloading…</span>
+          <span class="pct" id="dl-progress-pct">0%</span>
+        </div>
+        <div id="dl-progress-track">
+          <div id="dl-progress-fill"></div>
+        </div>
+      </div>
+
+      <p id="dl-status"></p>
+    </div>
+
+    <div class="recent" id="recent-wrap" style="display:none;">
+      <h2>Recent downloads</h2>
+      <div id="recent-list"></div>
+    </div>
+  </section>
+
+  <nav class="row">
+    <a class="up-btn" href="/player.html"><i class="fa-solid fa-play"></i> Launch Player</a>
+    <a class="up-btn" href="/test.html"><i class="fa-solid fa-flask"></i> Try the Resolver</a>
+    <a class="up-btn" href="/"><i class="fa-solid fa-house"></i> Home</a>
+  </nav>
+</main>
+
+<script src="/js/utils/utils.js"></script>
+<script src="/js/utils/resolver.js"></script>
+<script src="/js/utils/download.js"></script>
+<script>
+(() => {
+  const form = document.getElementById('dl-form');
+  const urlInput = document.getElementById('dl-url');
+  const info = document.getElementById('dl-info');
+  const preview = document.getElementById('dl-preview');
+  const kvType = document.getElementById('kv-type');
+  const kvName = document.getElementById('kv-name');
+  const kvSource = document.getElementById('kv-source');
+  const kvRoute = document.getElementById('kv-route');
+  const btnDownload = document.getElementById('btn-download-file');
+  const btnOpenPlayer = document.getElementById('btn-open-player');
+  const progressWrap = document.getElementById('dl-progress-wrap');
+  const progressFill = document.getElementById('dl-progress-fill');
+  const progressPct = document.getElementById('dl-progress-pct');
+  const status = document.getElementById('dl-status');
+  const recentWrap = document.getElementById('recent-wrap');
+  const recentList = document.getElementById('recent-list');
+
+  let currentUrl = null;
+  let currentResult = null;
+
+  const RECENTS_KEY = 'uniplayos:recent-downloads';
+
+  function loadRecents() {
+    try {
+      return JSON.parse(localStorage.getItem(RECENTS_KEY) || '[]');
+    } catch {
+      return [];
+    }
+  }
+
+  function saveRecent(entry) {
+    const list = loadRecents().filter(r => r.url !== entry.url);
+    list.unshift(entry);
+    localStorage.setItem(RECENTS_KEY, JSON.stringify(list.slice(0, 6)));
+    renderRecents();
+  }
+
+  function renderRecents() {
+    const list = loadRecents();
+    if (!list.length) {
+      recentWrap.style.display = 'none';
+      return;
+    }
+    recentWrap.style.display = 'block';
+    recentList.innerHTML = '';
+    list.forEach(entry => {
+      const row = document.createElement('div');
+      row.className = 'up-card recent-item';
+      row.innerHTML = `
+        <i class="fa-solid ${entry.type === 'audio' ? 'fa-music' : 'fa-file-video'}"></i>
+        <span class="name">${entry.name}</span>
+        <button type="button" data-url="${encodeURIComponent(entry.url)}">Reuse</button>
+      `;
+      row.querySelector('button').addEventListener('click', () => {
+        urlInput.value = decodeURIComponent(entry.url);
+        form.requestSubmit();
+      });
+      recentList.appendChild(row);
+    });
+  }
+
+  function setStatus(message, kind) {
+    status.textContent = message || '';
+    status.className = kind || '';
+  }
+
+  function setPreview(url, type) {
+    preview.innerHTML = '';
+    preview.classList.remove('visible');
+
+    if (type === 'mp4' || type === 'hls' || type === 'dash') {
+      const video = document.createElement('video');
+      video.src = url;
+      video.controls = true;
+      video.playsInline = true;
+      video.preload = 'metadata';
+      preview.appendChild(video);
+      preview.classList.add('visible');
+    } else if (type === 'image') {
+      const img = document.createElement('img');
+      img.src = url;
+      img.alt = '';
+      preview.appendChild(img);
+      preview.classList.add('visible');
+    } else if (type === 'audio') {
+      const audio = document.createElement('audio');
+      audio.src = url;
+      audio.controls = true;
+      audio.style.width = '100%';
+      audio.style.marginTop = '2.5rem';
+      preview.appendChild(audio);
+      preview.classList.add('visible');
+    }
+  }
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const raw = urlInput.value.trim();
+    if (!raw || !Utils.isValidUrl(raw)) {
+      setStatus('That doesn\'t look like a valid URL.', 'error');
+      return;
+    }
+
+    setStatus('');
+    progressWrap.classList.remove('visible');
+    progressFill.style.width = '0%';
+    progressFill.classList.remove('indeterminate');
+
+    const resolver = new Resolver();
+    let result;
+    try {
+      result = resolver.resolve(raw);
+    } catch (err) {
+      setStatus('Could not resolve that URL.', 'error');
+      return;
+    }
+
+    currentUrl = raw;
+    currentResult = result;
+
+    const isEmbed = result.strategy === 'iframe';
+    const playableUrl = result.proxyRequired ? resolver.getProxyUrl(raw) : raw;
+    const name = Utils.getFileName(raw) || 'download';
+
+    kvType.textContent = result.type.toUpperCase();
+    kvName.textContent = name;
+    kvSource.textContent = Utils.getDomain(raw) || raw;
+    kvRoute.textContent = result.proxyRequired ? 'Proxied' : 'Direct';
+
+    btnOpenPlayer.href = `/player.html?url=${encodeURIComponent(raw)}`;
+
+    if (isEmbed) {
+      preview.classList.remove('visible');
+      btnDownload.disabled = true;
+      btnDownload.style.opacity = '0.5';
+      btnDownload.style.cursor = 'not-allowed';
+      setStatus('This is an embedded platform (YouTube/Vimeo) — open it in the player instead of downloading.', '');
+    } else {
+      setPreview(playableUrl, result.type);
+      btnDownload.disabled = false;
+      btnDownload.style.opacity = '1';
+      btnDownload.style.cursor = 'pointer';
+    }
+
+    info.classList.add('visible');
+  });
+
+  btnDownload.addEventListener('click', async () => {
+    if (!currentUrl || !currentResult || btnDownload.disabled) return;
+
+    const name = Utils.getFileName(currentUrl) || 'download';
+    progressWrap.classList.add('visible');
+    setStatus('Starting download…', '');
+    btnDownload.disabled = true;
+    const originalHtml = btnDownload.innerHTML;
+    btnDownload.innerHTML = '<i class="fa-solid fa-spinner up-spin"></i> Downloading…';
+
+    let sawProgress = false;
+    progressFill.classList.add('indeterminate');
+
+    const downloader = new Downloader({
+      proxyBase: '/proxy',
+      onProgress: ({ percent }) => {
+        if (typeof percent === 'number') {
+          sawProgress = true;
+          progressFill.classList.remove('indeterminate');
+          progressFill.style.width = percent + '%';
+          progressPct.textContent = percent + '%';
+        }
+      },
+      onComplete: ({ size }) => {
+        progressFill.classList.remove('indeterminate');
+        progressFill.style.width = '100%';
+        progressPct.textContent = '100%';
+        setStatus(size ? `Saved — ${Utils.formatFileSize(size)}` : 'Saved to your downloads', 'ok');
+        btnDownload.disabled = false;
+        btnDownload.innerHTML = originalHtml;
+        saveRecent({ url: currentUrl, name, type: currentResult.type });
+      },
+      onError: (err) => {
+        progressFill.classList.remove('indeterminate');
+        setStatus(`Download failed — ${err.message || 'try again'}`, 'error');
+        btnDownload.disabled = false;
+        btnDownload.innerHTML = originalHtml;
+      }
+    });
+
+    try {
+      await downloader.download(currentUrl, name);
+    } catch (err) {
+      progressFill.classList.remove('indeterminate');
+      setStatus('Download failed — try again.', 'error');
+      btnDownload.disabled = false;
+      btnDownload.innerHTML = originalHtml;
+    }
+  });
+
+  renderRecents();
+
+  const params = new URLSearchParams(location.search);
+  const prefill = params.get('src') || params.get('url');
+  if (prefill) {
+    urlInput.value = prefill;
+    form.requestSubmit();
+  }
+})();
+</script>
+</body>
+</html>
