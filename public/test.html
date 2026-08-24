@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Test — UniplayOS</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/css/enhance.css">
 
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -189,10 +191,27 @@
 
     #proxy-row { display: flex; gap: 0.5rem; }
 
-    @media (max-width: 768px) {
+    @media (max-width: 1024px) {
       body { grid-template-columns: 1fr; }
       #left { border-right: none; border-bottom: 1px solid var(--border); }
     }
+
+    @media (max-width: 480px) {
+      header { padding: 0.8rem 1rem; flex-wrap: wrap; }
+      #url-row { flex-direction: column; }
+      #proxy-row { flex-direction: column; }
+    }
+
+    #test-credits {
+      grid-column: 1 / -1;
+      text-align: center;
+      font-size: 0.68rem;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      padding: 0.9rem;
+      border-top: 1px dashed var(--border);
+    }
+    #test-credits strong { color: var(--accent); }
   </style>
 </head>
 <body>
@@ -458,5 +477,6 @@
 
     log('test environment ready', 'ok', 'INIT');
   </script>
+
 </body>
 </html>
