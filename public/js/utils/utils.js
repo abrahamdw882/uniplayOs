@@ -1,1339 +1,326 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>UniplayOS · Native player</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
+class Utils {
+  static formatTime(seconds) {
+    if (isNaN(seconds) || !isFinite(seconds) || seconds < 0) {
+      return '0:00';
     }
-    :root {
-      --bg: #0a0a0a;
-      --surface: #111;
-      --border: #1f1f1f;
-      --text: #e8e8e8;
-      --muted: #777;
-      --accent: #c8ff00;
-      --ctrl-h: 54px;
+    
+    const hours = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    
+    if (hours > 0) {
+      return `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     }
-    html, body {
-      height: 100%;
-      overflow: hidden;
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  }
+  
+  static parseTime(timeString) {
+    const parts = timeString.split(':').map(Number);
+    if (parts.length === 2) {
+      return parts[0] * 60 + parts[1];
+    } else if (parts.length === 3) {
+      return parts[0] * 3600 + parts[1] * 60 + parts[2];
     }
-    #app {
-      width: 100vw;
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-      background: #000;
-      position: relative;
+    return 0;
+  }
+  
+  static getFileExtension(url) {
+    try {
+      const pathname = new URL(url).pathname;
+      const clean = pathname.split('?')[0].split('#')[0];
+      const parts = clean.split('.');
+      if (parts.length < 2) return '';
+      const ext = parts.pop().toLowerCase();
+      return ext.includes('/') ? '' : ext;
+    } catch {
+      return '';
     }
-    #stage {
-      flex: 1;
-      background: #000;
-      position: relative;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 100%;
-      height: 100%;
+  }
+  
+  static getFileName(url) {
+    try {
+      const cleanUrl = url.split('?')[0].split('#')[0];
+      const parts = cleanUrl.split('/');
+      return parts.pop() || 'download';
+    } catch {
+      return 'download';
     }
-    #stage video {
-      width: 100%;
-      height: 100%;
-      display: block;
-      object-fit: contain;
-      background: #000;
+  }
+  
+  static getDomain(url) {
+    try {
+      const urlObj = new URL(url);
+      return urlObj.hostname.replace('www.', '');
+    } catch {
+      return '';
     }
-    #stage #embed-frame {
-      width: 100%;
-      height: 100%;
-      display: none;
+  }
+  
+  static isValidUrl(string) {
+    try {
+      new URL(string);
+      return true;
+    } catch {
+      return false;
     }
-    #stage #embed-frame iframe {
-      width: 100%;
-      height: 100%;
-      border: none;
-      display: block;
-    }
-    #thumbnail {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: none;
-      z-index: 1;
-    }
-    #thumbnail.visible {
-      display: block;
-    }
-    #loader {
-      position: absolute;
-      inset: 0;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      background: rgba(0,0,0,0.55);
-      backdrop-filter: blur(2px);
-      z-index: 20;
-      pointer-events: none;
-    }
-    #loader.active {
-      display: flex;
-    }
-    .spinner {
-      width: 48px;
-      height: 48px;
-      border: 4px solid rgba(255,255,255,0.1);
-      border-top: 4px solid var(--accent);
-      border-radius: 50%;
-      animation: spin 0.9s linear infinite;
-    }
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-    #overlay {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      pointer-events: none;
-      z-index: 10;
-    }
-    #play-big {
-      width: 80px;
-      height: 80px;
-      border: 1px solid rgba(255,255,255,0.2);
-      color: var(--accent);
-      background: rgba(10,10,13,0.6);
-      backdrop-filter: blur(8px);
-      cursor: pointer;
-      font-size: 2rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      pointer-events: all;
-      border-radius: 50%;
-      opacity: 0;
-      transition: opacity 0.25s ease, transform 0.3s cubic-bezier(.34,1.56,.64,1);
-      transform: scale(0.85);
-    }
-    #stage.paused #play-big {
-      opacity: 1;
-      transform: scale(1);
-    }
-    #play-big:hover {
-      transform: scale(1.08);
-      box-shadow: 0 0 0 1px var(--accent);
-      background: rgba(200,255,0,0.12);
-    }
-    #controls {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      background: linear-gradient(0deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0) 100%);
-      padding: 1.2rem 1.5rem 1rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.6rem;
-      z-index: 30;
-      transition: opacity 0.4s ease, transform 0.3s ease;
-      pointer-events: auto;
-    }
-    #controls.hidden {
-      opacity: 0;
-      pointer-events: none;
-      transform: translateY(12px);
-    }
-    #progress-wrap {
-      position: relative;
-      height: 5px;
-      background: rgba(255,255,255,0.15);
-      cursor: pointer;
-      border-radius: 4px;
-      display: flex;
-      align-items: center;
-    }
-    #progress-wrap:hover {
-      height: 7px;
-    }
-    #progress-wrap input[type="range"] {
-      position: absolute;
-      width: 100%;
-      height: 100%;
-      -webkit-appearance: none;
-      appearance: none;
-      background: transparent;
-      cursor: pointer;
-      margin: 0;
-      padding: 0;
-      top: 0;
-      left: 0;
-      z-index: 2;
-    }
-    #progress-wrap input[type="range"]::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      background: var(--accent);
-      cursor: pointer;
-      box-shadow: 0 0 16px rgba(200,255,0,0.5);
-      margin-top: -5.5px;
-    }
-    #progress-wrap input[type="range"]::-moz-range-thumb {
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      background: var(--accent);
-      cursor: pointer;
-      border: none;
-      box-shadow: 0 0 16px rgba(200,255,0,0.5);
-    }
-    #progress-fill {
-      position: absolute;
-      top: 0;
-      left: 0;
-      height: 100%;
-      background: var(--accent);
-      box-shadow: 0 0 12px rgba(200,255,0,0.3);
-      width: 0%;
-      pointer-events: none;
-      border-radius: 4px;
-      z-index: 1;
-    }
-    #ctrl-row {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      width: 100%;
-      flex-wrap: nowrap;
-    }
-    button {
-      background: none;
-      border: none;
-      border-radius: 6px;
-      color: var(--text);
-      cursor: pointer;
-      font-size: 1.1rem;
-      padding: 0.3rem 0.5rem;
-      transition: color 0.2s, transform 0.2s cubic-bezier(.34,1.56,.64,1), background 0.2s;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      font-family: inherit;
-    }
-    button:hover {
-      color: var(--accent);
-      background: rgba(200,255,0,0.08);
-      transform: translateY(-1px);
-    }
-    button:active {
-      transform: scale(0.92);
-    }
-    #time {
-      font-size: 0.8rem;
-      color: #aaa;
-      white-space: nowrap;
-      font-variant-numeric: tabular-nums;
-      min-width: 90px;
-      flex-shrink: 0;
-      letter-spacing: 0.02em;
-    }
-    .spacer {
-      flex: 1;
-      min-width: 4px;
-    }
-    #vol {
-      width: 70px;
-      accent-color: var(--accent);
-      background: rgba(255,255,255,0.2);
-      border-radius: 4px;
-      height: 4px;
-      cursor: pointer;
-      flex-shrink: 0;
-    }
-    #btn-speed {
-      font-size: 0.8rem;
-      min-width: 2.8rem;
-      font-variant-numeric: tabular-nums;
-      background: rgba(255,255,255,0.04);
-      border-radius: 20px;
-      padding: 0.2rem 0.7rem;
-    }
-    #btn-fs {
-      font-size: 1.1rem;
-    }
-    #stage.fullscreen {
-      position: fixed;
-      inset: 0;
-      width: 100vw;
-      height: 100vh;
-      max-width: 100vw;
-      max-height: 100vh;
-      background: #000;
-      z-index: 9999;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0;
-      border-radius: 0;
-    }
-    #stage.fullscreen video {
-      object-fit: contain;
-      width: 100vw;
-      height: 100vh;
-    }
-    #stage.fullscreen #controls {
-      background: linear-gradient(0deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0) 100%);
-      padding: 1.5rem 2rem 1.2rem;
-    }
-    #stage.fullscreen #ctrl-row {
-      gap: 0.8rem;
-    }
-    #stage.fullscreen #vol {
-      width: 90px;
-    }
-    #debug-bar {
-      position: absolute;
-      bottom: 100px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(10,10,13,0.8);
-      backdrop-filter: blur(12px);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 40px;
-      padding: 0.4rem 0.6rem 0.4rem 1.2rem;
-      display: none;
-      align-items: center;
-      gap: 0.6rem;
-      z-index: 40;
-      pointer-events: auto;
-      box-shadow: 0 12px 40px rgba(0,0,0,0.6);
-    }
-    #debug-bar.visible {
-      display: flex;
-    }
-    #debug-bar input {
-      background: transparent;
-      border: none;
-      color: #fff;
-      font-family: inherit;
-      font-size: 0.85rem;
-      padding: 0.3rem 0;
-      outline: none;
-      width: 260px;
-      border-bottom: 1px solid rgba(255,255,255,0.1);
-    }
-    #debug-bar input:focus {
-      border-color: var(--accent);
-    }
-    #debug-bar button {
-      background: var(--accent);
-      color: #000;
-      border: none;
-      border-radius: 30px;
-      padding: 0.3rem 1.2rem;
-      font-weight: 600;
-      font-size: 0.8rem;
-      cursor: pointer;
-      transition: 0.15s;
-    }
-    #debug-bar button:hover {
-      background: #d4ff33;
-      transform: scale(1.02);
-    }
-    #resume-toast {
-      position: absolute;
-      bottom: 100px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0,0,0,0.7);
-      backdrop-filter: blur(10px);
-      border: 1px solid var(--accent);
-      color: #fff;
-      padding: 0.4rem 1.2rem;
-      border-radius: 40px;
-      font-size: 0.8rem;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.25s;
-      white-space: nowrap;
-      z-index: 25;
-    }
-    #resume-toast.visible {
-      opacity: 1;
-    }
+  }
+  
+  static isVideo(url) {
+    const ext = this.getFileExtension(url);
+    return ['mp4', 'webm', 'mkv', 'avi', 'mov', 'm4v', 'ts', 'flv', 'wmv', '3gp'].includes(ext);
+  }
+  
+  static isAudio(url) {
+    const ext = this.getFileExtension(url);
+    return ['mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a', 'wma', 'opus'].includes(ext);
+  }
+  
+  static isImage(url) {
+    const ext = this.getFileExtension(url);
+    return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico', 'tiff'].includes(ext);
+  }
+  
+  static isYouTube(url) {
+    return url.includes('youtube.com/watch') || 
+           url.includes('youtu.be') || 
+           url.includes('youtube.com/shorts');
+  }
+  
+  static isVimeo(url) {
+    return url.includes('vimeo.com');
+  }
 
-    /* === RESPONSIVE TWEAKS: all controls visible, no overflow === */
-    @media (max-width: 640px) {
-      #controls {
-        padding: 0.6rem 0.5rem 0.5rem;
-        gap: 0.25rem;
-      }
-      #ctrl-row {
-        gap: 0.1rem;
-        flex-wrap: nowrap;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: none;
-      }
-      #ctrl-row::-webkit-scrollbar {
-        display: none;
-      }
-      button {
-        font-size: 0.75rem;
-        padding: 0.15rem 0.3rem;
-        min-width: 28px;
-        min-height: 28px;
-        flex-shrink: 0;
-      }
-      #btn-speed {
-        font-size: 0.6rem;
-        min-width: 2rem;
-        padding: 0.05rem 0.35rem;
-      }
-      #btn-fs {
-        font-size: 0.75rem;
-      }
-      #time {
-        font-size: 0.6rem;
-        min-width: 54px;
-        flex-shrink: 0;
-      }
-      #vol {
-        width: 32px;
-        flex-shrink: 0;
-      }
-      #play-big {
-        width: 48px;
-        height: 48px;
-        font-size: 1.2rem;
-      }
-      #debug-bar {
-        width: 92%;
-        padding: 0.3rem 0.5rem;
-        bottom: 70px;
-      }
-      #debug-bar input {
-        width: 100%;
-        font-size: 0.7rem;
-      }
-      #debug-bar button {
-        font-size: 0.7rem;
-        padding: 0.2rem 0.8rem;
-      }
-      /* fullscreen overrides for small screens */
-      #stage.fullscreen #controls {
-        padding: 0.8rem 0.6rem 0.6rem;
-      }
-      #stage.fullscreen #ctrl-row {
-        gap: 0.15rem;
-      }
-      #stage.fullscreen button {
-        font-size: 0.8rem;
-        min-width: 30px;
-        min-height: 30px;
-        padding: 0.15rem 0.25rem;
-      }
-      #stage.fullscreen #time {
-        font-size: 0.6rem;
-        min-width: 54px;
-      }
-      #stage.fullscreen #vol {
-        width: 36px;
-      }
-      #stage.fullscreen #btn-speed {
-        font-size: 0.65rem;
-        min-width: 2.2rem;
-        padding: 0.05rem 0.4rem;
+  static getThumbnail(url) {
+    if (this.isYouTube(url)) {
+      const match = url.match(/(?:v=|youtu\.be\/|shorts\/)([a-zA-Z0-9_-]{11})/);
+      if (match) {
+        const id = match[1];
+        return `https://img.youtube.com/vi/${id}/maxresdefault.jpg`;
       }
     }
-
-    @media (max-width: 480px) {
-      #controls {
-        padding: 0.4rem 0.3rem 0.3rem;
-        gap: 0.15rem;
-      }
-      #ctrl-row {
-        gap: 0.05rem;
-      }
-      button {
-        font-size: 0.65rem;
-        padding: 0.1rem 0.2rem;
-        min-width: 24px;
-        min-height: 24px;
-      }
-      #time {
-        font-size: 0.5rem;
-        min-width: 44px;
-      }
-      #vol {
-        width: 24px;
-      }
-      #btn-speed {
-        font-size: 0.5rem;
-        min-width: 1.6rem;
-        padding: 0.05rem 0.2rem;
-      }
-      #play-big {
-        width: 40px;
-        height: 40px;
-        font-size: 1rem;
-      }
-      #stage.fullscreen #controls {
-        padding: 0.5rem 0.3rem 0.3rem;
-      }
-      #stage.fullscreen #ctrl-row {
-        gap: 0.05rem;
-      }
-      #stage.fullscreen button {
-        font-size: 0.65rem;
-        min-width: 24px;
-        min-height: 24px;
-        padding: 0.1rem 0.15rem;
-      }
-      #stage.fullscreen #time {
-        font-size: 0.5rem;
-        min-width: 44px;
-      }
-      #stage.fullscreen #vol {
-        width: 28px;
-      }
-      #stage.fullscreen #btn-speed {
-        font-size: 0.55rem;
-        min-width: 1.6rem;
-        padding: 0.05rem 0.2rem;
-      }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      * {
-        transition: none !important;
-      }
-    }
-  </style>
-</head>
-<body>
-<div id="app">
-  <div id="stage" class="paused">
-    <video id="video" playsinline></video>
-    <img id="thumbnail" alt="">
-    <div id="embed-frame"></div>
-    <div id="loader"><div class="spinner"></div></div>
-    <div id="overlay"><button id="play-big" aria-label="Play"><i class="fa-solid fa-play"></i></button></div>
-    <div id="resume-toast"></div>
-    <div id="controls">
-      <div id="progress-wrap" role="slider" tabindex="0">
-        <div id="progress-fill"></div>
-        <input type="range" id="seek-slider" min="0" max="100" value="0" step="0.01" aria-label="Seek">
-      </div>
-      <div id="ctrl-row">
-        <button id="btn-play" aria-label="Play/Pause"><i class="fa-solid fa-play"></i></button>
-        <button id="btn-rewind" aria-label="Rewind 10s"><i class="fa-solid fa-backward-step"></i></button>
-        <button id="btn-forward" aria-label="Forward 10s"><i class="fa-solid fa-forward-step"></i></button>
-        <span id="time">0:00 / 0:00</span>
-        <div class="spacer"></div>
-        <button id="btn-speed" aria-label="Speed">1x</button>
-        <button id="btn-mute" aria-label="Mute"><i class="fa-solid fa-volume-high"></i></button>
-        <input id="vol" type="range" min="0" max="1" step="0.02" value="1" aria-label="Volume">
-        <button id="btn-download" aria-label="Download"><i class="fa-solid fa-download"></i></button>
-        <button id="btn-fs" aria-label="Fullscreen"><i class="fa-solid fa-expand"></i></button>
-      </div>
-    </div>
-    <div id="debug-bar">
-      <input id="url-input" type="url" placeholder="Paste URL (MP4, HLS, YouTube…)" spellcheck="false">
-      <button id="url-load">Load</button>
-    </div>
-  </div>
-</div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.7/hls.min.js">
-</script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/dashjs/4.7.4/dash.all.min.js">
-</script>
-<script src="https://www.youtube.com/iframe_api">
-</script>
-<script src="https://player.vimeo.com/api/player.js">
-</script>
-<script>
-  (function() {
-    const video = document.getElementById('video');
-    const stage = document.getElementById('stage');
-    const embedFrame = document.getElementById('embed-frame');
-    const thumbnail = document.getElementById('thumbnail');
-    const btnPlay = document.getElementById('btn-play');
-    const btnRewind = document.getElementById('btn-rewind');
-    const btnForward = document.getElementById('btn-forward');
-    const playBig = document.getElementById('play-big');
-    const btnMute = document.getElementById('btn-mute');
-    const btnFs = document.getElementById('btn-fs');
-    const btnDownload = document.getElementById('btn-download');
-    const btnSpeed = document.getElementById('btn-speed');
-    const progress = document.getElementById('progress-fill');
-    const progWrap = document.getElementById('progress-wrap');
-    const seekSlider = document.getElementById('seek-slider');
-    const timeEl = document.getElementById('time');
-    const volSlider = document.getElementById('vol');
-    const urlInput = document.getElementById('url-input');
-    const urlLoad = document.getElementById('url-load');
-    const loader = document.getElementById('loader');
-    const controls = document.getElementById('controls');
-    const resumeToast = document.getElementById('resume-toast');
-    let hlsInstance = null;
-    let dashInstance = null;
-    let ytPlayer = null;
-    let vimeoPlayer = null;
-    let playbackMode = 'native';
-    let knownDuration = 0;
-    let currentSpeed = 1;
-    let isSeeking = false;
-    let isReadySent = false;
-    let currentSourceUrl = null;
-    let lastHistorySaveAt = 0;
-    let loadTimeout = null;
-    let waitingTimeout = null;
-    let hideControlsTimeout = null;
-    let controlsVisible = true;
-    const PLAYBACK_SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
-    const HISTORY_KEY = 'history';
-    const RESUME_MIN_POSITION = 5;
-    const RESUME_END_BUFFER = 15;
-
-    const Utils = {
-      formatTime: function(sec) {
-        if (!sec || !isFinite(sec)) return '0:00';
-        const m = Math.floor(sec / 60);
-        const s = Math.floor(sec % 60);
-        return m + ':' + s.toString().padStart(2, '0');
-      },
-      getThumbnail: function(url) { return ''; },
-      isYouTube: function(url) { return /(youtube\.com|youtu\.be)/i.test(url); },
-      isVimeo: function(url) { return /vimeo\.com/i.test(url); },
-      getFileName: function(url) {
-        try {
-          var parts = new URL(url).pathname.split('/');
-          return parts[parts.length - 1] || 'video.mp4';
-        } catch (e) {
-          return 'video.mp4';
-        }
-      }
-    };
-
-    const Storage = {
-      get: function(key, def) {
-        try {
-          var d = JSON.parse(localStorage.getItem(key));
-          return d !== null ? d : def;
-        } catch (e) {
-          return def;
-        }
-      },
-      set: function(key, val) {
-        localStorage.setItem(key, JSON.stringify(val));
-      }
-    };
-
-    const Resolver = function() {
-      this.resolve = function(url) {
-        if (Utils.isYouTube(url) || Utils.isVimeo(url)) {
-          return { strategy: 'iframe', type: 'iframe', proxyRequired: false };
-        }
-        if (/\.m3u8/i.test(url)) {
-          return { strategy: 'native', type: 'hls', proxyRequired: false };
-        }
-        if (/\.mpd/i.test(url)) {
-          return { strategy: 'native', type: 'dash', proxyRequired: false };
-        }
-        return { strategy: 'native', type: 'mp4', proxyRequired: false };
+    return null;
+  }
+  
+  static isHLS(url) {
+    return url.includes('.m3u8') || url.includes('m3u8');
+  }
+  
+  static isDASH(url) {
+    return url.includes('.mpd') || url.includes('manifest');
+  }
+  
+  static generateId() {
+    return Date.now().toString(36) + Math.random().toString(36).substr(2, 6);
+  }
+  
+  static generateShortId() {
+    return Math.random().toString(36).substr(2, 6);
+  }
+  
+  static randomColor() {
+    return '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0');
+  }
+  
+  static clamp(value, min, max) {
+    return Math.min(Math.max(value, min), max);
+  }
+  
+  static formatFileSize(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  }
+  
+  static truncate(str, maxLength = 50) {
+    if (str.length <= maxLength) return str;
+    return str.substring(0, maxLength) + '...';
+  }
+  
+  static capitalize(str) {
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  }
+  
+  static slugify(str) {
+    return str
+      .toLowerCase()
+      .replace(/[^\w\s]/g, '')
+      .replace(/\s+/g, '-');
+  }
+  
+  static debounce(func, wait = 300) {
+    let timeout;
+    return function executedFunction(...args) {
+      const later = () => {
+        clearTimeout(timeout);
+        func(...args);
       };
+      clearTimeout(timeout);
+      timeout = setTimeout(later, wait);
     };
-
-    const Downloader = function(opts) {
-      this.download = function(url, name) {
-        if (opts && opts.onComplete) {
-          opts.onComplete();
-        }
-        return Promise.resolve();
-      };
+  }
+  
+  static throttle(func, limit = 300) {
+    let inThrottle;
+    return function(...args) {
+      if (!inThrottle) {
+        func.apply(this, args);
+        inThrottle = true;
+        setTimeout(() => inThrottle = false, limit);
+      }
     };
-
-    function showLoader(show) {
-      loader.classList.toggle('active', show);
-    }
-
-    function sendReadyIfNeeded() {
-      if (!isReadySent) {
-        isReadySent = true;
+  }
+  
+  static once(func) {
+    let ran = false;
+    let result;
+    return function(...args) {
+      if (!ran) {
+        ran = true;
+        result = func.apply(this, args);
       }
+      return result;
+    };
+  }
+  
+  static getElement(selector, context = document) {
+    const el = context.querySelector(selector);
+    if (!el) {
+      throw new Error(`Element not found: ${selector}`);
     }
-
-    function setIcon(btn, icon) {
-      var i = btn.querySelector('i');
-      if (i) {
-        i.className = 'fa-solid fa-' + icon;
-      }
+    return el;
+  }
+  
+  static getElements(selector, context = document) {
+    const els = context.querySelectorAll(selector);
+    if (els.length === 0) {
+      throw new Error(`No elements found: ${selector}`);
     }
-
-    function setPlayingUI(isPlaying) {
-      stage.classList.toggle('paused', !isPlaying);
-      setIcon(btnPlay, isPlaying ? 'pause' : 'play');
-      setIcon(playBig, isPlaying ? 'pause' : 'play');
-      if (!isPlaying) {
-        showLoader(false);
-        if (waitingTimeout) {
-          clearTimeout(waitingTimeout);
-          waitingTimeout = null;
-        }
-      }
+    return els;
+  }
+  
+  static toggleClass(element, className) {
+    element.classList.toggle(className);
+  }
+  
+  static addClass(element, className) {
+    element.classList.add(className);
+  }
+  
+  static removeClass(element, className) {
+    element.classList.remove(className);
+  }
+  
+  static hasClass(element, className) {
+    return element.classList.contains(className);
+  }
+  
+  static shuffle(array) {
+    const arr = [...array];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
     }
-
-    function updateTimeUI(ct, dur) {
-      if (!dur || !isFinite(dur)) return;
-      knownDuration = dur;
-      var pct = (ct / dur) * 100;
-      progress.style.width = pct + '%';
-      if (!isSeeking) {
-        seekSlider.value = pct;
-      }
-      timeEl.textContent = Utils.formatTime(ct) + ' / ' + Utils.formatTime(dur);
-    }
-
-    function destroyInstances() {
-      if (hlsInstance) {
-        hlsInstance.destroy();
-        hlsInstance = null;
-      }
-      if (dashInstance) {
-        dashInstance.reset();
-        dashInstance = null;
-      }
-      if (ytPlayer) {
-        try {
-          ytPlayer.destroy();
-        } catch (e) {}
-        ytPlayer = null;
-      }
-      if (vimeoPlayer) {
-        try {
-          vimeoPlayer.destroy();
-        } catch (e) {}
-        vimeoPlayer = null;
-      }
-      embedFrame.innerHTML = '';
-      playbackMode = 'native';
-      knownDuration = 0;
-    }
-
-    function showVideo() {
-      video.style.display = 'block';
-      embedFrame.style.display = 'none';
-    }
-
-    function showEmbed() {
-      video.style.display = 'none';
-      embedFrame.style.display = 'block';
-    }
-
-    function safePlay() {
-      var p = video.play();
-      if (p !== undefined) {
-        p.catch(function() {});
-      }
-    }
-
-    function extractYouTubeId(url) {
-      var m = url.match(/(?:v=|youtu\.be\/|shorts\/)([a-zA-Z0-9_-]{11})/);
-      return m ? m[1] : null;
-    }
-
-    function extractVimeoId(url) {
-      var m = url.match(/vimeo\.com\/(\d+)/);
-      return m ? m[1] : null;
-    }
-
-    function showResumeToast(pos) {
-      if (!resumeToast) return;
-      resumeToast.textContent = 'Resumed from ' + Utils.formatTime(pos);
-      resumeToast.classList.add('visible');
-      setTimeout(function() {
-        resumeToast.classList.remove('visible');
-      }, 2500);
-    }
-
-    function showToast(msg, hold) {
-      hold = hold || 2500;
-      if (!resumeToast) return;
-      resumeToast.textContent = msg;
-      resumeToast.classList.add('visible');
-      if (hold) {
-        setTimeout(function() {
-          resumeToast.classList.remove('visible');
-        }, hold);
-      }
-    }
-
-    function getHistory() {
-      return Storage.get(HISTORY_KEY, []);
-    }
-
-    function getHistoryEntry(url) {
-      var history = getHistory();
-      for (var i = 0; i < history.length; i++) {
-        if (history[i].url === url) {
-          return history[i];
-        }
-      }
-      return null;
-    }
-
-    function saveHistoryEntry(url, pos, dur) {
-      if (!url || !dur || !isFinite(dur)) return;
-      var list = getHistory().filter(function(e) {
-        return e.url !== url;
+    return arr;
+  }
+  
+  static groupBy(array, key) {
+    return array.reduce((result, item) => {
+      const group = item[key];
+      if (!result[group]) result[group] = [];
+      result[group].push(item);
+      return result;
+    }, {});
+  }
+  
+  static unique(array) {
+    return [...new Set(array)];
+  }
+  
+  static deepClone(obj) {
+    return JSON.parse(JSON.stringify(obj));
+  }
+  
+  static isEmpty(obj) {
+    return Object.keys(obj).length === 0;
+  }
+  
+  static merge(obj1, obj2) {
+    return { ...obj1, ...obj2 };
+  }
+  
+  static formatDate(date, format = 'short') {
+    const d = new Date(date);
+    if (format === 'short') {
+      return d.toLocaleDateString();
+    } else if (format === 'long') {
+      return d.toLocaleDateString(undefined, { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
       });
-      list.unshift({ url: url, position: pos, duration: dur, updatedAt: Date.now() });
-      Storage.set(HISTORY_KEY, list.slice(0, 50));
+    } else if (format === 'time') {
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
+    return d.toLocaleString();
+  }
+  
+  static timeAgo(date) {
+    const now = Date.now();
+    const diff = now - new Date(date).getTime();
+    const seconds = Math.floor(diff / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+    const weeks = Math.floor(days / 7);
+    const months = Math.floor(days / 30);
+    const years = Math.floor(days / 365);
+    
+    if (seconds < 60) return 'just now';
+    if (minutes < 60) return `${minutes}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    if (days < 7) return `${days}d ago`;
+    if (weeks < 4) return `${weeks}w ago`;
+    if (months < 12) return `${months}mo ago`;
+    return `${years}y ago`;
+  }
+  
+  static isMobile() {
+    return /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  }
+  
+  static isIOS() {
+    return /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  }
+  
+  static isAndroid() {
+    return /Android/i.test(navigator.userAgent);
+  }
+  
+  static isFullscreen() {
+    return document.fullscreenElement !== null;
+  }
+  
+  static lightenColor(hex, percent) {
+    const num = parseInt(hex.replace('#', ''), 16);
+    const amt = Math.round(2.55 * percent);
+    const R = Math.min(255, (num >> 16) + amt);
+    const G = Math.min(255, ((num >> 8) & 0x00FF) + amt);
+    const B = Math.min(255, (num & 0x0000FF) + amt);
+    return `#${(1 << 24 | R << 16 | G << 8 | B).toString(16).slice(1)}`;
+  }
+  
+  static darkenColor(hex, percent) {
+    const num = parseInt(hex.replace('#', ''), 16);
+    const amt = Math.round(2.55 * percent);
+    const R = Math.max(0, (num >> 16) - amt);
+    const G = Math.max(0, ((num >> 8) & 0x00FF) - amt);
+    const B = Math.max(0, (num & 0x0000FF) - amt);
+    return `#${(1 << 24 | R << 16 | G << 8 | B).toString(16).slice(1)}`;
+  }
+}
 
-    function removeHistoryEntry(url) {
-      var list = getHistory().filter(function(e) {
-        return e.url !== url;
-      });
-      Storage.set(HISTORY_KEY, list);
-    }
-
-    function persistProgress(force) {
-      force = force || false;
-      if (!currentSourceUrl || !video.duration || !isFinite(video.duration)) return;
-      var now = Date.now();
-      if (!force && now - lastHistorySaveAt < 5000) return;
-      lastHistorySaveAt = now;
-      saveHistoryEntry(currentSourceUrl, video.currentTime, video.duration);
-    }
-
-    function applyResumeIfNeeded(url, seekFn) {
-      var entry = getHistoryEntry(url);
-      if (!entry) return;
-      if (entry.position < RESUME_MIN_POSITION) return;
-      if (entry.duration && entry.position > entry.duration - RESUME_END_BUFFER) {
-        removeHistoryEntry(url);
-        return;
-      }
-      seekFn(entry.position);
-      showResumeToast(entry.position);
-    }
-
-    function maybeResume(url) {
-      applyResumeIfNeeded(url, function(pos) {
-        video.currentTime = pos;
-      });
-    }
-
-    function updateSpeedLabel() {
-      btnSpeed.textContent = currentSpeed === 1 ? '1x' : currentSpeed + 'x';
-    }
-
-    function applyCurrentSpeed() {
-      if (playbackMode === 'youtube' && ytPlayer && typeof ytPlayer.setPlaybackRate === 'function') {
-        ytPlayer.setPlaybackRate(currentSpeed);
-      } else if (playbackMode === 'vimeo' && vimeoPlayer) {
-        vimeoPlayer.setPlaybackRate(currentSpeed).catch(function() {});
-      } else {
-        video.playbackRate = currentSpeed;
-      }
-    }
-
-    function setPlaybackSpeed(speed) {
-      currentSpeed = speed;
-      updateSpeedLabel();
-      applyCurrentSpeed();
-    }
-
-    function cycleSpeed() {
-      var idx = PLAYBACK_SPEEDS.indexOf(currentSpeed);
-      var next = PLAYBACK_SPEEDS[(idx + 1) % PLAYBACK_SPEEDS.length];
-      setPlaybackSpeed(next);
-    }
-
-    function showControls() {
-      controls.classList.remove('hidden');
-      controlsVisible = true;
-      clearTimeout(hideControlsTimeout);
-      hideControlsTimeout = setTimeout(function() {
-        if (!video.paused) {
-          controls.classList.add('hidden');
-          controlsVisible = false;
-        }
-      }, 3500);
-    }
-
-    function toggleControls() {
-      if (controlsVisible) {
-        controls.classList.add('hidden');
-        controlsVisible = false;
-        clearTimeout(hideControlsTimeout);
-      } else {
-        controls.classList.remove('hidden');
-        controlsVisible = true;
-        showControls();
-      }
-    }
-
-    function updateAspectRatio() {
-      if (video.videoWidth && video.videoHeight) {
-        stage.style.aspectRatio = video.videoWidth + ' / ' + video.videoHeight;
-      }
-    }
-
-    function loadUrl(rawUrl, autoplay) {
-      autoplay = autoplay || false;
-      if (!rawUrl) return;
-      destroyInstances();
-      isReadySent = false;
-      showLoader(true);
-      currentSourceUrl = null;
-      lastHistorySaveAt = 0;
-      var resumeState = { attempted: false };
-      if (loadTimeout) {
-        clearTimeout(loadTimeout);
-      }
-      loadTimeout = setTimeout(function() {
-        if (loader.classList.contains('active')) {}
-      }, 3000);
-      var resolver = new Resolver();
-      var result = resolver.resolve(rawUrl);
-      var src = result.proxyRequired ? '' : rawUrl;
-      if (result.strategy === 'iframe') {
-        showEmbed();
-        stage.style.aspectRatio = '16/9';
-        currentSourceUrl = rawUrl;
-        if (Utils.isYouTube(rawUrl)) {
-          playbackMode = 'youtube';
-          var videoId = extractYouTubeId(rawUrl);
-          if (!videoId) {
-            showLoader(false);
-            return;
-          }
-          if (typeof YT !== 'undefined' && YT.Player) {
-            ytPlayer = new YT.Player(embedFrame, {
-              videoId: videoId,
-              width: '100%',
-              height: '100%',
-              playerVars: { autoplay: autoplay ? 1 : 0, playsinline: 1 },
-              events: {
-                onReady: function() {
-                  showLoader(false);
-                  if (loadTimeout) clearTimeout(loadTimeout);
-                  sendReadyIfNeeded();
-                  knownDuration = ytPlayer.getDuration();
-                  applyCurrentSpeed();
-                  if (!resumeState.attempted) {
-                    resumeState.attempted = true;
-                    applyResumeIfNeeded(rawUrl, function(pos) {
-                      ytPlayer.seekTo(pos, true);
-                    });
-                  }
-                },
-                onStateChange: function(e) {
-                  if (e.data === YT.PlayerState.PLAYING) {
-                    setPlayingUI(true);
-                    showControls();
-                  } else if (e.data === YT.PlayerState.PAUSED) {
-                    setPlayingUI(false);
-                    if (currentSourceUrl) {
-                      saveHistoryEntry(currentSourceUrl, ytPlayer.getCurrentTime(), ytPlayer.getDuration());
-                    }
-                    showLoader(false);
-                  } else if (e.data === YT.PlayerState.ENDED) {
-                    if (currentSourceUrl) removeHistoryEntry(currentSourceUrl);
-                  }
-                }
-              }
-            });
-          }
-        } else if (Utils.isVimeo(rawUrl)) {
-          playbackMode = 'vimeo';
-          var videoId = extractVimeoId(rawUrl);
-          if (!videoId) {
-            showLoader(false);
-            return;
-          }
-          vimeoPlayer = new Vimeo.Player(embedFrame, { id: videoId, autoplay: autoplay, responsive: true });
-          vimeoPlayer.ready().then(function() {
-            showLoader(false);
-            if (loadTimeout) clearTimeout(loadTimeout);
-            sendReadyIfNeeded();
-            return vimeoPlayer.getDuration();
-          }).then(function(dur) {
-            knownDuration = dur || 0;
-            applyCurrentSpeed();
-            if (!resumeState.attempted) {
-              resumeState.attempted = true;
-              applyResumeIfNeeded(rawUrl, function(pos) {
-                vimeoPlayer.setCurrentTime(pos);
-              });
-            }
-          });
-          vimeoPlayer.on('play', function() {
-            setPlayingUI(true);
-            showControls();
-          });
-          vimeoPlayer.on('pause', function() {
-            setPlayingUI(false);
-            if (currentSourceUrl && vimeoPlayer) {
-              vimeoPlayer.getCurrentTime().then(function(t) {
-                saveHistoryEntry(currentSourceUrl, t, knownDuration);
-              });
-            }
-            showLoader(false);
-          });
-          vimeoPlayer.on('ended', function() {
-            if (currentSourceUrl) removeHistoryEntry(currentSourceUrl);
-          });
-        } else {
-          embedFrame.innerHTML = '';
-          var frame = document.createElement('iframe');
-          frame.allowFullscreen = true;
-          frame.setAttribute('allow', 'autoplay');
-          frame.src = rawUrl;
-          embedFrame.appendChild(frame);
-          showLoader(false);
-          sendReadyIfNeeded();
-        }
-        return;
-      }
-      showVideo();
-      stage.style.aspectRatio = '16/9';
-      currentSourceUrl = rawUrl;
-
-      function onMediaReady() {
-        showLoader(false);
-        if (loadTimeout) clearTimeout(loadTimeout);
-        updateAspectRatio();
-        sendReadyIfNeeded();
-        applyCurrentSpeed();
-        if (!resumeState.attempted) {
-          resumeState.attempted = true;
-          maybeResume(rawUrl);
-        }
-        if (autoplay) {
-          safePlay();
-        }
-      }
-
-      function onError(msg) {
-        showLoader(false);
-        if (loadTimeout) clearTimeout(loadTimeout);
-      }
-
-      if (result.type === 'hls') {
-        if (Hls.isSupported()) {
-          hlsInstance = new Hls();
-          hlsInstance.loadSource(src);
-          hlsInstance.attachMedia(video);
-          hlsInstance.on(Hls.Events.MANIFEST_PARSED, onMediaReady);
-          hlsInstance.on(Hls.Events.ERROR, function(_, data) {
-            if (data.fatal) onError('HLS error');
-          });
-        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-          video.src = src;
-          video.addEventListener('loadedmetadata', onMediaReady, { once: true });
-          video.addEventListener('error', function() {
-            onError('HLS load error');
-          }, { once: true });
-          if (autoplay) safePlay();
-        } else {
-          onError('HLS not supported');
-        }
-      } else if (result.type === 'dash') {
-        dashInstance = dashjs.MediaPlayer().create();
-        dashInstance.initialize(video, src, true);
-        dashInstance.on('streamInitialized', onMediaReady);
-        dashInstance.on('streamError', function() {
-          onError('DASH error');
-        });
-      } else {
-        video.src = src;
-        video.addEventListener('loadedmetadata', onMediaReady, { once: true });
-        video.addEventListener('error', function() {
-          onError('Media error');
-        }, { once: true });
-        if (autoplay) safePlay();
-      }
-    }
-
-    video.addEventListener('loadedmetadata', function() {
-      updateAspectRatio();
-      sendReadyIfNeeded();
-      showLoader(false);
-      if (loadTimeout) clearTimeout(loadTimeout);
-    });
-
-    video.addEventListener('play', function() {
-      setPlayingUI(true);
-      showControls();
-    });
-
-    video.addEventListener('pause', function() {
-      setPlayingUI(false);
-      persistProgress(true);
-      showLoader(false);
-      if (waitingTimeout) {
-        clearTimeout(waitingTimeout);
-        waitingTimeout = null;
-      }
-    });
-
-    video.addEventListener('ended', function() {
-      if (currentSourceUrl) removeHistoryEntry(currentSourceUrl);
-    });
-
-    video.addEventListener('error', function() {
-      showLoader(false);
-      if (loadTimeout) clearTimeout(loadTimeout);
-    });
-
-    video.addEventListener('waiting', function() {
-      if (!video.paused) {
-        showLoader(true);
-        if (waitingTimeout) {
-          clearTimeout(waitingTimeout);
-        }
-        waitingTimeout = setTimeout(function() {
-          if (loader.classList.contains('active')) {}
-        }, 500);
-      }
-    });
-
-    video.addEventListener('playing', function() {
-      showLoader(false);
-      if (waitingTimeout) {
-        clearTimeout(waitingTimeout);
-        waitingTimeout = null;
-      }
-    });
-
-    video.addEventListener('canplay', function() {
-      showLoader(false);
-      if (waitingTimeout) {
-        clearTimeout(waitingTimeout);
-        waitingTimeout = null;
-      }
-    });
-
-    video.addEventListener('timeupdate', function() {
-      if (!video.duration) return;
-      updateTimeUI(video.currentTime, video.duration);
-      persistProgress();
-    });
-
-    seekSlider.addEventListener('input', function(e) {
-      isSeeking = true;
-      var pct = parseFloat(e.target.value);
-      progress.style.width = pct + '%';
-      var dur = playbackMode === 'native' ? video.duration : knownDuration;
-      if (dur) {
-        var time = (pct / 100) * dur;
-        timeEl.textContent = Utils.formatTime(time) + ' / ' + Utils.formatTime(dur);
-      }
-    });
-
-    seekSlider.addEventListener('change', function(e) {
-      isSeeking = false;
-      var pct = parseFloat(e.target.value);
-      var dur = playbackMode === 'native' ? video.duration : knownDuration;
-      if (!dur) return;
-      var time = (pct / 100) * dur;
-      if (playbackMode === 'youtube' && ytPlayer) {
-        ytPlayer.seekTo(time, true);
-      } else if (playbackMode === 'vimeo' && vimeoPlayer) {
-        vimeoPlayer.setCurrentTime(time);
-      } else {
-        video.currentTime = time;
-        showLoader(true);
-      }
-    });
-
-    btnPlay.addEventListener('click', function() {
-      if (playbackMode === 'youtube' && ytPlayer) {
-        var state = ytPlayer.getPlayerState();
-        if (state === YT.PlayerState.PLAYING) {
-          ytPlayer.pauseVideo();
-        } else {
-          ytPlayer.playVideo();
-        }
-      } else if (playbackMode === 'vimeo' && vimeoPlayer) {
-        vimeoPlayer.getPaused().then(function(p) {
-          if (p) vimeoPlayer.play();
-          else vimeoPlayer.pause();
-        });
-      } else {
-        if (video.paused) {
-          safePlay();
-        } else {
-          video.pause();
-        }
-      }
-    });
-
-    playBig.addEventListener('click', function() {
-      btnPlay.click();
-    });
-
-    btnRewind.addEventListener('click', function() {
-      if (playbackMode === 'youtube' && ytPlayer) {
-        ytPlayer.seekTo(Math.max(0, ytPlayer.getCurrentTime() - 10), true);
-      } else if (playbackMode === 'vimeo' && vimeoPlayer) {
-        vimeoPlayer.getCurrentTime().then(function(t) {
-          vimeoPlayer.setCurrentTime(Math.max(0, t - 10));
-        });
-      } else {
-        video.currentTime = Math.max(0, video.currentTime - 10);
-        if (!video.paused) showLoader(true);
-      }
-    });
-
-    btnForward.addEventListener('click', function() {
-      if (playbackMode === 'youtube' && ytPlayer) {
-        var dur = ytPlayer.getDuration() || knownDuration;
-        ytPlayer.seekTo(Math.min(dur, ytPlayer.getCurrentTime() + 10), true);
-      } else if (playbackMode === 'vimeo' && vimeoPlayer) {
-        Promise.all([vimeoPlayer.getCurrentTime(), vimeoPlayer.getDuration()]).then(function(arr) {
-          var t = arr[0];
-          var d = arr[1];
-          vimeoPlayer.setCurrentTime(Math.min(d, t + 10));
-        });
-      } else {
-        video.currentTime = Math.min(video.duration || 0, video.currentTime + 10);
-        if (!video.paused) showLoader(true);
-      }
-    });
-
-    btnMute.addEventListener('click', function() {
-      if (playbackMode === 'youtube' && ytPlayer) {
-        var muted = ytPlayer.isMuted();
-        if (muted) ytPlayer.unMute();
-        else ytPlayer.mute();
-        setIcon(btnMute, muted ? 'volume-high' : 'volume-xmark');
-      } else if (playbackMode === 'vimeo' && vimeoPlayer) {
-        vimeoPlayer.getMuted().then(function(m) {
-          vimeoPlayer.setMuted(!m);
-          setIcon(btnMute, m ? 'volume-high' : 'volume-xmark');
-        });
-      } else {
-        video.muted = !video.muted;
-        setIcon(btnMute, video.muted ? 'volume-xmark' : 'volume-high');
-      }
-    });
-
-    volSlider.addEventListener('input', function() {
-      var v = parseFloat(volSlider.value);
-      if (playbackMode === 'youtube' && ytPlayer) {
-        ytPlayer.setVolume(v * 100);
-      } else if (playbackMode === 'vimeo' && vimeoPlayer) {
-        vimeoPlayer.setVolume(v);
-      } else {
-        video.volume = v;
-      }
-    });
-
-    btnSpeed.addEventListener('click', cycleSpeed);
-
-    btnFs.addEventListener('click', function() {
-      if (!document.fullscreenElement) {
-        stage.classList.add('fullscreen');
-        if (stage.requestFullscreen) {
-          stage.requestFullscreen().catch(function() {});
-        }
-      } else {
-        if (document.exitFullscreen) {
-          document.exitFullscreen();
-        }
-      }
-    });
-
-    document.addEventListener('fullscreenchange', function() {
-      if (!document.fullscreenElement) {
-        stage.classList.remove('fullscreen');
-        updateAspectRatio();
-      } else {
-        stage.classList.add('fullscreen');
-      }
-    });
-
-    btnDownload.addEventListener('click', function() {
-      if (!currentSourceUrl) {
-        showToast('Nothing loaded');
-        return;
-      }
-      if (playbackMode === 'youtube' || playbackMode === 'vimeo' || playbackMode === 'iframe') {
-        showToast('Embed download not supported');
-        return;
-      }
-      showToast('Download started (demo)');
-    });
-
-    stage.addEventListener('mousemove', showControls);
-    stage.addEventListener('click', function(e) {
-      if (e.target === stage || e.target === video) {
-        toggleControls();
-      }
-    });
-    stage.addEventListener('touchstart', function() {
-      showControls();
-    });
-
-    var debugBar = document.getElementById('debug-bar');
-    var params = new URLSearchParams(window.location.search);
-    if (params.get('debug') === 'true') {
-      debugBar.classList.add('visible');
-    }
-
-    urlLoad.addEventListener('click', function() {
-      loadUrl(urlInput.value.trim());
-    });
-
-    urlInput.addEventListener('keydown', function(e) {
-      if (e.key === 'Enter') {
-        loadUrl(urlInput.value.trim());
-      }
-    });
-
-    var sourceParam = params.get('source') || params.get('url');
-    if (sourceParam) {
-      urlInput.value = sourceParam;
-      loadUrl(sourceParam, params.get('autoplay') === 'true');
-    } else {
-      setTimeout(function() {
-        sendReadyIfNeeded();
-        showLoader(false);
-      }, 300);
-    }
-
-    document.addEventListener('visibilitychange', function() {
-      if (document.visibilityState === 'hidden') {
-        persistProgress(true);
-      }
-    });
-
-    window.addEventListener('beforeunload', function() {
-      persistProgress(true);
-    });
-  })();
-</script>
-</body>
-</html>
+if (typeof window !== 'undefined') {
+  window.Utils = Utils;
+}
