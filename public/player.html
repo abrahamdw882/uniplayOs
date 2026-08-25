@@ -390,9 +390,10 @@
       opacity: 1;
     }
 
-    /* === RESPONSIVE TWEAKS: all controls visible, no overflow === */
+    /* === RESPONSIVE TWEAKS: controls positioned at bottom: 88px on small screens === */
     @media (max-width: 640px) {
       #controls {
+        bottom: 88px; /* Lift controls up on mobile */
         padding: 0.6rem 0.5rem 0.5rem;
         gap: 0.25rem;
       }
@@ -438,7 +439,7 @@
       #debug-bar {
         width: 92%;
         padding: 0.3rem 0.5rem;
-        bottom: 70px;
+        bottom: 150px; /* Adjust debug bar position to match */
       }
       #debug-bar input {
         width: 100%;
@@ -450,6 +451,7 @@
       }
       /* fullscreen overrides for small screens */
       #stage.fullscreen #controls {
+        bottom: 88px; /* Also lift controls in fullscreen on mobile */
         padding: 0.8rem 0.6rem 0.6rem;
       }
       #stage.fullscreen #ctrl-row {
@@ -477,10 +479,15 @@
       #stage.fullscreen #debug-bar {
         display: none !important;
       }
+      /* Resume toast position update */
+      #resume-toast {
+        bottom: 160px;
+      }
     }
 
     @media (max-width: 480px) {
       #controls {
+        bottom: 88px; /* Consistent 88px on very small screens */
         padding: 0.4rem 0.3rem 0.3rem;
         gap: 0.15rem;
       }
@@ -510,7 +517,11 @@
         height: 40px;
         font-size: 1rem;
       }
+      #debug-bar {
+        bottom: 150px;
+      }
       #stage.fullscreen #controls {
+        bottom: 88px; /* Consistent 88px in fullscreen on very small screens */
         padding: 0.5rem 0.3rem 0.3rem;
       }
       #stage.fullscreen #ctrl-row {
@@ -537,6 +548,9 @@
       /* ensure debug-bar is hidden in fullscreen */
       #stage.fullscreen #debug-bar {
         display: none !important;
+      }
+      #resume-toast {
+        bottom: 160px;
       }
     }
 
