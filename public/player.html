@@ -378,58 +378,86 @@
     #resume-toast.visible {
       opacity: 1;
     }
+
+    /* === REDUCED BUTTON SIZE ON SMALL SCREENS === */
     @media (max-width: 600px) {
       #controls {
-        padding: 0.8rem 0.8rem 0.8rem;
-        gap: 0.4rem;
-      }
-      #ctrl-row {
-        gap: 0.2rem;
-      }
-      #vol {
-        width: 40px;
-      }
-      #time {
-        font-size: 0.65rem;
-        min-width: 70px;
-      }
-      button {
-        font-size: 0.9rem;
-        padding: 0.2rem 0.3rem;
-      }
-      #play-big {
-        width: 56px;
-        height: 56px;
-        font-size: 1.4rem;
-      }
-      #debug-bar {
-        width: 90%;
-        padding: 0.3rem 0.6rem;
-        bottom: 80px;
-      }
-      #debug-bar input {
-        width: 100%;
-        font-size: 0.75rem;
-      }
-      #btn-speed {
-        font-size: 0.7rem;
-        min-width: 2.2rem;
-        padding: 0.1rem 0.5rem;
-      }
-    }
-    @media (max-width: 480px) {
-      #controls {
-        padding: 0.5rem 0.4rem;
+        padding: 0.6rem 0.6rem 0.6rem;
+        gap: 0.3rem;
       }
       #ctrl-row {
         gap: 0.1rem;
       }
+      button {
+        font-size: 0.8rem;      /* smaller icons */
+        padding: 0.15rem 0.25rem;
+        min-width: 30px;
+        min-height: 30px;
+      }
+      #btn-speed {
+        font-size: 0.65rem;
+        min-width: 2.2rem;
+        padding: 0.1rem 0.4rem;
+      }
+      #btn-fs {
+        font-size: 0.8rem;
+      }
       #time {
-        min-width: 60px;
         font-size: 0.6rem;
+        min-width: 60px;
       }
       #vol {
-        width: 32px;
+        width: 36px;
+      }
+      #play-big {
+        width: 48px;
+        height: 48px;
+        font-size: 1.2rem;
+      }
+      #debug-bar {
+        width: 92%;
+        padding: 0.3rem 0.5rem;
+        bottom: 70px;
+      }
+      #debug-bar input {
+        width: 100%;
+        font-size: 0.7rem;
+      }
+      #debug-bar button {
+        font-size: 0.7rem;
+        padding: 0.2rem 0.8rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      #controls {
+        padding: 0.4rem 0.3rem;
+      }
+      #ctrl-row {
+        gap: 0.05rem;
+      }
+      button {
+        font-size: 0.7rem;
+        padding: 0.1rem 0.2rem;
+        min-width: 26px;
+        min-height: 26px;
+      }
+      #time {
+        font-size: 0.5rem;
+        min-width: 50px;
+      }
+      #vol {
+        width: 28px;
+      }
+      #btn-speed {
+        font-size: 0.55rem;
+        min-width: 1.8rem;
+        padding: 0.05rem 0.3rem;
+      }
+      #play-big {
+        width: 40px;
+        height: 40px;
+        font-size: 1rem;
       }
     }
     @media (prefers-reduced-motion: reduce) {
