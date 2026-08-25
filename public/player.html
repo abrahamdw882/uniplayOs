@@ -152,7 +152,14 @@
       transition: opacity 0.4s ease, transform 0.3s ease;
       pointer-events: auto;
     }
-    #controls.hidden {
+    /* Controls always visible when NOT in fullscreen */
+    #stage:not(.fullscreen) #controls {
+      opacity: 1 !important;
+      pointer-events: auto !important;
+      transform: none !important;
+    }
+    /* Controls can hide in fullscreen */
+    #stage.fullscreen #controls.hidden {
       opacity: 0;
       pointer-events: none;
       transform: translateY(12px);
@@ -308,6 +315,10 @@
     #stage.fullscreen #vol {
       width: 90px;
     }
+    /* debug bar hidden in fullscreen */
+    #stage.fullscreen #debug-bar {
+      display: none !important;
+    }
     #debug-bar {
       position: absolute;
       bottom: 100px;
@@ -462,6 +473,10 @@
         min-width: 2.2rem;
         padding: 0.05rem 0.4rem;
       }
+      /* ensure debug-bar is hidden in fullscreen */
+      #stage.fullscreen #debug-bar {
+        display: none !important;
+      }
     }
 
     @media (max-width: 480px) {
@@ -518,6 +533,10 @@
         font-size: 0.55rem;
         min-width: 1.6rem;
         padding: 0.05rem 0.2rem;
+      }
+      /* ensure debug-bar is hidden in fullscreen */
+      #stage.fullscreen #debug-bar {
+        display: none !important;
       }
     }
 
@@ -870,26 +889,37 @@
     }
 
     function showControls() {
-      controls.classList.remove('hidden');
-      controlsVisible = true;
-      clearTimeout(hideControlsTimeout);
-      hideControlsTimeout = setTimeout(function() {
-        if (!video.paused) {
-          controls.classList.add('hidden');
-          controlsVisible = false;
-        }
-      }, 3500);
+      // Only hide controls in fullscreen mode
+      if (stage.classList.contains('fullscreen')) {
+        controls.classList.remove('hidden');
+        controlsVisible = true;
+        clearTimeout(hideControlsTimeout);
+        hideControlsTimeout = setTimeout(function() {
+          if (!video.paused) {
+            controls.classList.add('hidden');
+            controlsVisible = false;
+          }
+        }, 3500);
+      } else {
+        // Always show controls when not in fullscreen
+        controls.classList.remove('hidden');
+        controlsVisible = true;
+        clearTimeout(hideControlsTimeout);
+      }
     }
 
     function toggleControls() {
-      if (controlsVisible) {
-        controls.classList.add('hidden');
-        controlsVisible = false;
-        clearTimeout(hideControlsTimeout);
-      } else {
-        controls.classList.remove('hidden');
-        controlsVisible = true;
-        showControls();
+      // Only toggle in fullscreen mode
+      if (stage.classList.contains('fullscreen')) {
+        if (controlsVisible) {
+          controls.classList.add('hidden');
+          controlsVisible = false;
+          clearTimeout(hideControlsTimeout);
+        } else {
+          controls.classList.remove('hidden');
+          controlsVisible = true;
+          showControls();
+        }
       }
     }
 
@@ -902,21 +932,26 @@
     function loadUrl(rawUrl, autoplay) {
       autoplay = autoplay || false;
       if (!rawUrl) return;
+      
+      // Clear any existing instances and reset state
       destroyInstances();
       isReadySent = false;
       showLoader(true);
       currentSourceUrl = null;
       lastHistorySaveAt = 0;
       var resumeState = { attempted: false };
+      
       if (loadTimeout) {
         clearTimeout(loadTimeout);
       }
       loadTimeout = setTimeout(function() {
         if (loader.classList.contains('active')) {}
       }, 3000);
+      
       var resolver = new Resolver();
       var result = resolver.resolve(rawUrl);
       var src = result.proxyRequired ? '' : rawUrl;
+      
       if (result.strategy === 'iframe') {
         showEmbed();
         stage.style.aspectRatio = '16/9';
@@ -1259,6 +1294,8 @@
         if (stage.requestFullscreen) {
           stage.requestFullscreen().catch(function() {});
         }
+        // Show controls when entering fullscreen
+        showControls();
       } else {
         if (document.exitFullscreen) {
           document.exitFullscreen();
@@ -1270,8 +1307,13 @@
       if (!document.fullscreenElement) {
         stage.classList.remove('fullscreen');
         updateAspectRatio();
+        // Always show controls when exiting fullscreen
+        controls.classList.remove('hidden');
+        controlsVisible = true;
+        clearTimeout(hideControlsTimeout);
       } else {
         stage.classList.add('fullscreen');
+        showControls();
       }
     });
 
@@ -1287,14 +1329,24 @@
       showToast('Download started (demo)');
     });
 
-    stage.addEventListener('mousemove', showControls);
-    stage.addEventListener('click', function(e) {
-      if (e.target === stage || e.target === video) {
-        toggleControls();
+    stage.addEventListener('mousemove', function() {
+      if (stage.classList.contains('fullscreen')) {
+        showControls();
       }
     });
+    
+    stage.addEventListener('click', function(e) {
+      if (e.target === stage || e.target === video) {
+        if (stage.classList.contains('fullscreen')) {
+          toggleControls();
+        }
+      }
+    });
+    
     stage.addEventListener('touchstart', function() {
-      showControls();
+      if (stage.classList.contains('fullscreen')) {
+        showControls();
+      }
     });
 
     var debugBar = document.getElementById('debug-bar');
@@ -1304,12 +1356,18 @@
     }
 
     urlLoad.addEventListener('click', function() {
-      loadUrl(urlInput.value.trim());
+      var url = urlInput.value.trim();
+      if (url) {
+        loadUrl(url, true); // autoplay after load
+      }
     });
 
     urlInput.addEventListener('keydown', function(e) {
       if (e.key === 'Enter') {
-        loadUrl(urlInput.value.trim());
+        var url = urlInput.value.trim();
+        if (url) {
+          loadUrl(url, true); // autoplay after load
+        }
       }
     });
 
