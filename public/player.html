@@ -30,6 +30,8 @@
       color: var(--text);
       font-family: 'Inter', system-ui, -apple-system, sans-serif;
     }
+
+    /* ── app layout ── */
     #app {
       width: 100vw;
       height: 100vh;
@@ -78,6 +80,8 @@
     #thumbnail.visible {
       display: block;
     }
+
+    /* ── loader ── */
     #loader {
       position: absolute;
       inset: 0;
@@ -108,6 +112,8 @@
         transform: rotate(360deg);
       }
     }
+
+    /* ── big play ── */
     #overlay {
       position: absolute;
       inset: 0;
@@ -144,6 +150,8 @@
       box-shadow: 0 0 0 1px var(--accent);
       background: rgba(200, 255, 0, 0.12);
     }
+
+    /* ── controls ── */
     #controls {
       position: absolute;
       bottom: 0;
@@ -163,6 +171,8 @@
       pointer-events: none;
       transform: translateY(12px);
     }
+
+    /* progress */
     #progress-wrap {
       position: relative;
       height: 5px;
@@ -221,6 +231,8 @@
       border-radius: 4px;
       z-index: 1;
     }
+
+    /* row */
     #ctrl-row {
       display: flex;
       align-items: center;
@@ -242,7 +254,7 @@
       justify-content: center;
       flex-shrink: 0;
       font-family: inherit;
-      min-width: 2.2rem;
+      min-width: 2.4rem;
     }
     button:hover {
       color: var(--accent);
@@ -257,7 +269,7 @@
       color: #aaa;
       white-space: nowrap;
       font-variant-numeric: tabular-nums;
-      min-width: 90px;
+      min-width: 100px;
       flex-shrink: 0;
       letter-spacing: 0.02em;
     }
@@ -266,7 +278,7 @@
       min-width: 4px;
     }
     #vol {
-      width: 70px;
+      width: 80px;
       accent-color: var(--accent);
       background: rgba(255, 255, 255, 0.2);
       border-radius: 4px;
@@ -276,7 +288,7 @@
     }
     #btn-speed {
       font-size: 0.8rem;
-      min-width: 2.8rem;
+      min-width: 3rem;
       font-variant-numeric: tabular-nums;
       background: rgba(255, 255, 255, 0.04);
       border-radius: 20px;
@@ -285,6 +297,8 @@
     #btn-fs {
       font-size: 1.1rem;
     }
+
+    /* ── fullscreen ── */
     #stage.fullscreen {
       position: fixed;
       inset: 0;
@@ -313,8 +327,10 @@
       gap: 0.8rem;
     }
     #stage.fullscreen #vol {
-      width: 90px;
+      width: 100px;
     }
+
+    /* ── debug bar ── */
     #debug-bar {
       position: absolute;
       bottom: 100px;
@@ -364,6 +380,8 @@
       background: #d4ff33;
       transform: scale(1.02);
     }
+
+    /* ── toast ── */
     #resume-toast {
       position: absolute;
       bottom: 100px;
@@ -385,7 +403,8 @@
     #resume-toast.visible {
       opacity: 1;
     }
-    /* ===== RESPONSIVE FIXES ===== */
+
+    /* ── responsive: small screens ── */
     @media (max-width: 820px) {
       #controls {
         padding: 0.8rem 0.8rem 0.6rem;
@@ -616,6 +635,7 @@
       </div>
     </div>
   </div>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.7/hls.min.js">
   </script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dashjs/4.7.4/dash.all.min.js">
